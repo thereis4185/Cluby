@@ -1,0 +1,127 @@
+/* src/index.css */
+
+/* 기본 여백 제거 및 화면 꽉 채우기 */
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  
+  /* 색상 모드 (다크모드 방지 및 라이트모드 고정) */
+  color-scheme: light;
+  color: #213547;
+  background-color: #ffffff;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%; /* 너비 100% 강제 */
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%; /* 리액트 루트도 100% */
+  margin: 0;   /* 가운데 정렬 마진 제거 */
+  padding: 0;
+  max-width: none; /* 최대 너비 제한 해제 (중요!) */
+  text-align: left; /* 텍스트 왼쪽 정렬 */
+}
+
+/* src/index.css 맨 아래에 복사 & 붙여넣기 */
+
+/* 캘린더 전체 틀 */
+.react-calendar {
+  width: 100%;
+  max-width: 100%;
+  background: #ffffff;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); /* 부드러운 그림자 */
+  font-family: 'Roboto', sans-serif;
+  padding: 20px;
+  line-height: 1.125em;
+}
+
+/* 상단 네비게이션 (년/월 표시) */
+.react-calendar__navigation {
+  display: flex;
+  height: 50px;
+  margin-bottom: 20px;
+}
+
+.react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #333;
+  border-radius: 8px;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+  background-color: #f3f4f6;
+}
+
+/* 요일 표시 (월 화 수...) */
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 0.85em;
+  color: #9ca3af; /* 회색 텍스트 */
+  margin-bottom: 10px;
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+}
+
+/* 날짜 타일 (하루하루) */
+.react-calendar__tile {
+  max-width: 100%;
+  padding: 15px 6px;
+  background: none;
+  text-align: center;
+  line-height: 16px;
+  font-size: 0.95em;
+  border-radius: 12px; /* 둥글게 */
+  transition: 0.2s;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+/* 오늘 날짜 */
+.react-calendar__tile--now {
+  background: #fff7ed !important;
+  color: #ea580c !important;
+  font-weight: bold;
+  border: 1px solid #ffedd5;
+}
+
+/* 선택된 날짜 */
+.react-calendar__tile--active {
+  background: #1976d2 !important;
+  color: white !important;
+  box-shadow: 0 4px 10px rgba(25, 118, 210, 0.3);
+}
+
+/* 일정 있는 날 점 (Dot) */
+.dot {
+  height: 6px;
+  width: 6px;
+  background-color: #ff4081;
+  border-radius: 50%;
+  display: block;
+  margin: 4px auto 0; /* 날짜 숫자 바로 아래 중앙 정렬 */
+}
