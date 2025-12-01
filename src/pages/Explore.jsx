@@ -64,7 +64,7 @@ export default function Explore({ session }) {
       <Box sx={{ maxWidth: 1000, mx: 'auto', py: 4 }}>
         <Box sx={{ textAlign: 'center', mb: 6 }}>
           <Typography variant="h4" fontWeight="900" gutterBottom sx={{ color: '#1e293b' }}>
-            🔍 동아리 탐색
+            동아리 탐색
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
             새로운 관심사를 찾아보세요! 키워드로 검색할 수 있습니다.
