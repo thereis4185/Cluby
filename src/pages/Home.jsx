@@ -81,7 +81,7 @@ export default function Home({ session }) {
 
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
           <Typography variant="h3" fontWeight="900" sx={{ mb: 2, textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-            Find Your Passion, <br/> Join the Club.
+            흩어진 동아리 업무, 이젠 한 곳에서, <br/> 동아리에 참여하세요
           </Typography>
           <Typography variant="h6" sx={{ mb: 6, opacity: 0.9, fontWeight: 300, fontSize: { xs: '1rem', md: '1.25rem' } }}>
             대학 생활의 모든 즐거움이 시작되는 곳,<br/>Cluby에서 당신의 동아리를 찾아보세요.
@@ -140,7 +140,6 @@ export default function Home({ session }) {
       {/* My Clubs Section */}
       <Container maxWidth="lg" sx={{ mb: 10 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, borderBottom: '2px solid #f1f5f9', pb: 2 }}>
-          <EmojiEvents sx={{ color: '#eab308', mr: 1.5, fontSize: 32 }} />
           <Typography variant="h5" fontWeight="800" color="#1e293b">
             내 활동 동아리
           </Typography>
