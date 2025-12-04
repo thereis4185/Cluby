@@ -8,10 +8,10 @@ import {
   Paper, InputBase, Container, Fade, Avatar, Stack
 } from '@mui/material'
 import { Add, Delete, Search, ArrowForward, Groups, Explore } from '@mui/icons-material'
-import { useTranslation } from 'react-i18next' // [추가]
+import { useTranslation } from 'react-i18next' 
 
 export default function Home({ session }) {
-  const { t } = useTranslation() // [추가]
+  const { t } = useTranslation() 
   const [myClubs, setMyClubs] = useState([])
   const [searchQuery, setSearchQuery] = useState('') 
   const [open, setOpen] = useState(false)
@@ -27,16 +27,27 @@ export default function Home({ session }) {
     if (mems) setMyClubs(mems)
   }
 
+  // [수정됨] 동아리 생성 시 현재 언어로 소개글 저장
   const createClub = async () => {
     if (!newClubName) return
-    const { data } = await supabase.from('clubs').insert([{ name: newClubName }]).select()
+    
+    // 1. 현재 언어에 맞는 기본 텍스트 가져오기
+    const defaultTitle = t('home.default_intro_title');
+    const defaultContent = t('home.default_intro_content');
+
+    const { data } = await supabase.from('clubs').insert([{ 
+      name: newClubName,
+      intro_title: defaultTitle,   // [추가] 현재 언어로 제목 저장
+      intro_content: defaultContent // [추가] 현재 언어로 내용 저장
+    }]).select()
+
     await supabase.from('club_members').insert([{ user_id: session.user.id, club_id: data[0].id, role: 'manager', status: 'approved' }])
     setOpen(false); setNewClubName(''); fetchClubs()
   }
 
   const handleDeleteClub = async (e, clubId, clubName) => {
     e.stopPropagation() 
-    if (!confirm(t('common.confirm_delete'))) return // [수정]
+    if (!confirm(t('common.confirm_delete'))) return 
     const { error } = await supabase.from('clubs').delete().eq('id', clubId)
     if (error) alert('Error: ' + error.message); else { fetchClubs() }
   }
@@ -48,10 +59,10 @@ export default function Home({ session }) {
   }
 
   const getRoleBadge = (status, role) => {
-    if (status === 'pending') return { label: t('home.status_pending'), color: '#f59e0b', bg: '#fffbeb' } // [수정]
-    if (role === 'manager') return { label: t('home.role_manager'), color: '#dc2626', bg: '#fef2f2' } // [수정]
-    if (role === 'staff') return { label: t('home.role_staff'), color: '#2563eb', bg: '#eff6ff' } // [수정]
-    return { label: t('home.role_member'), color: '#059669', bg: '#ecfdf5' } // [수정]
+    if (status === 'pending') return { label: t('home.status_pending'), color: '#f59e0b', bg: '#fffbeb' } 
+    if (role === 'manager') return { label: t('home.role_manager'), color: '#dc2626', bg: '#fef2f2' } 
+    if (role === 'staff') return { label: t('home.role_staff'), color: '#2563eb', bg: '#eff6ff' } 
+    return { label: t('home.role_member'), color: '#059669', bg: '#ecfdf5' } 
   }
 
   const stringToColor = (string) => {
@@ -80,10 +91,10 @@ export default function Home({ session }) {
 
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
           <Typography variant="h3" fontWeight="900" sx={{ mb: 2, textShadow: '0 4px 12px rgba(0,0,0,0.3)', whiteSpace: 'pre-line' }}>
-             <br/>{t('home.hero_title')}<br/><br/> {/* [수정] */}
+             <br/>{t('home.hero_title')}<br/><br/> 
           </Typography>
           <Typography variant="h6" sx={{ mb: 6, opacity: 0.9, fontWeight: 300, fontSize: { xs: '1rem', md: '1.25rem' }, whiteSpace: 'pre-line' }}>
-            {t('home.hero_desc')} {/* [수정] */}
+            {t('home.hero_desc')} 
           </Typography>
 
           <Paper
@@ -102,7 +113,7 @@ export default function Home({ session }) {
             </Box>
             <InputBase 
               sx={{ ml: 2, flex: 1, fontSize: '1.1rem' }} 
-              placeholder={t('home.search_placeholder')} // [수정]
+              placeholder={t('home.search_placeholder')} 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
             />
@@ -116,7 +127,7 @@ export default function Home({ session }) {
                 boxShadow: 'none'
               }}
             >
-              {t('common.search')} {/* [수정] */}
+              {t('common.search')} 
             </Button>
           </Paper>
 
@@ -129,7 +140,7 @@ export default function Home({ session }) {
               borderRadius: 2, px: 2, py: 1
             }}
           >
-            {t('home.create_club_btn')} {/* [수정] */}
+            {t('home.create_club_btn')} 
           </Button>
         </Container>
       </Box>
@@ -138,7 +149,7 @@ export default function Home({ session }) {
       <Container maxWidth="lg" sx={{ mb: 10 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, borderBottom: '2px solid #f1f5f9', pb: 2 }}>
           <Typography variant="h5" fontWeight="800" color="#1e293b">
-            {t('home.my_clubs')} {/* [수정] */}
+            {t('home.my_clubs')} 
           </Typography>
           <Chip 
             label={myClubs.length} 
@@ -157,9 +168,9 @@ export default function Home({ session }) {
             }}
           >
             <Groups sx={{ fontSize: 60, color: '#cbd5e1', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" fontWeight="bold">{t('home.no_clubs_title')}</Typography> {/* [수정] */}
+            <Typography variant="h6" color="text.secondary" fontWeight="bold">{t('home.no_clubs_title')}</Typography> 
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 4 }}>
-              {t('home.no_clubs_desc')} {/* [수정] */}
+              {t('home.no_clubs_desc')} 
             </Typography>
             <Button 
               variant="contained" 
@@ -172,7 +183,7 @@ export default function Home({ session }) {
                 '&:hover': { bgcolor: '#4338ca' }
               }}
             >
-              {t('home.go_explore')} {/* [수정] */}
+              {t('home.go_explore')} 
             </Button>
           </Paper>
         ) : (
@@ -241,7 +252,7 @@ export default function Home({ session }) {
                           endIcon={item.status === 'approved' && <ArrowForward />}
                           sx={{ py: 1.2, borderRadius: 2, boxShadow: 'none', fontWeight: 'bold', textTransform: 'none' }}
                         >
-                          {item.status === 'approved' ? t('home.enter_club') : t('home.status_pending')} {/* [수정] */}
+                          {item.status === 'approved' ? t('home.enter_club') : t('home.status_pending')} 
                         </Button>
                       </CardActions>
                     </Card>
@@ -250,7 +261,6 @@ export default function Home({ session }) {
               })}
             </Box>
 
-            {/* 동아리가 있을 때 하단 탐색 유도 섹션 */}
             <Paper 
               elevation={0} 
               sx={{ 
@@ -261,10 +271,10 @@ export default function Home({ session }) {
             >
               <Box>
                 <Typography variant="h6" fontWeight="bold" color="#1e3a8a" gutterBottom>
-                  {t('home.explore_more_title')} {/* [수정] */}
+                  {t('home.explore_more_title')} 
                 </Typography>
                 <Typography variant="body2" color="#64748b">
-                  {t('home.explore_more_desc')} {/* [수정] */}
+                  {t('home.explore_more_desc')} 
                 </Typography>
               </Box>
               <Button 
@@ -277,7 +287,7 @@ export default function Home({ session }) {
                   '&:hover': { bgcolor: '#f8fafc' }
                 }}
               >
-                {t('home.view_all')} {/* [수정] */}
+                {t('home.view_all')} 
               </Button>
             </Paper>
           </>
@@ -296,24 +306,24 @@ export default function Home({ session }) {
               <Add fontSize="large" />
             </Box>
           </Box>
-          {t('home.create_modal_title')} {/* [수정] */}
+          {t('home.create_modal_title')} 
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            {t('home.create_modal_desc')} {/* [수정] */}
+            {t('home.create_modal_desc')} 
           </Typography>
           <TextField 
             autoFocus 
             fullWidth 
-            placeholder={t('home.input_club_name')} // [수정]
+            placeholder={t('home.input_club_name')} 
             value={newClubName} 
             onChange={e => setNewClubName(e.target.value)} 
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'stretch', gap: 1 }}>
-          <Button onClick={() => setOpen(false)} size="large" fullWidth sx={{ color: 'text.secondary', borderRadius: 2, bgcolor: '#f1f5f9' }}>{t('common.cancel')}</Button> {/* [수정] */}
-          <Button onClick={createClub} variant="contained" size="large" fullWidth sx={{ borderRadius: 2, boxShadow: 'none' }}>{t('common.create')}</Button> {/* [수정] */}
+          <Button onClick={() => setOpen(false)} size="large" fullWidth sx={{ color: 'text.secondary', borderRadius: 2, bgcolor: '#f1f5f9' }}>{t('common.cancel')}</Button> 
+          <Button onClick={createClub} variant="contained" size="large" fullWidth sx={{ borderRadius: 2, boxShadow: 'none' }}>{t('common.create')}</Button> 
         </DialogActions>
       </Dialog>
     </Layout>

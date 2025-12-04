@@ -85,6 +85,8 @@ const resources = {
         role_member: "멤버",
         status_pending: "승인 대기",
         enter_club: "동아리 입장",
+        default_intro_title: "환영합니다!",
+        default_intro_content: "동아리 소개글을 자유롭게 작성해주세요."
       },
       explore: {
         title: "동아리 탐색",
@@ -416,6 +418,8 @@ const resources = {
         role_member: "メンバー",
         status_pending: "承認待ち",
         enter_club: "サークルに入場",
+        default_intro_title: "ようこそ！",
+        default_intro_content: "サークルの紹介文を自由に作成してください。"
       },
       explore: {
         title: "サークル探索",
