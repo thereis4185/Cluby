@@ -19,12 +19,12 @@ import ChatTab from '../features/ChatTab'
 import { 
   Tabs, Tab, Box, Typography, Container, Stack, Chip, Button, Fade, Avatar,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Checkbox, FormControlLabel 
+  Checkbox, FormControlLabel, Skeleton // [추가] Skeleton
 } from '@mui/material'
 import { 
   Verified, PhotoCamera, Settings 
 } from '@mui/icons-material'
-import { useTranslation } from 'react-i18next' // 다국어 Hook
+import { useTranslation } from 'react-i18next' 
 
 export default function ClubDetail() {
   const { id } = useParams()
@@ -42,6 +42,9 @@ export default function ClubDetail() {
     intro_title: '', intro_content: '', icon_url: '' 
   })
   const [uploading, setUploading] = useState(false)
+  
+  // [NEW] 페이지 전체 로딩 상태
+  const [pageLoading, setPageLoading] = useState(true)
 
   // --- [State: 네비게이션 및 탭] ---
   const [activeTab, setActiveTab] = useState('home')
@@ -99,6 +102,7 @@ export default function ClubDetail() {
   const fetchClubInfo = async () => {
     const { data } = await supabase.from('clubs').select('*').eq('id', id).maybeSingle()
     if (data) setClubData(data)
+    setPageLoading(false) // [NEW] 로딩 완료
   }
 
   // --- [Action Handlers] ---
@@ -115,7 +119,6 @@ export default function ClubDetail() {
       .maybeSingle();
 
     if (error) {
-      // 데이터가 없거나 에러인 경우 빈 배열로 처리
       setQuestions([]);
       setAnswers({});
       setOpenJoinDialog(true);
@@ -133,7 +136,6 @@ export default function ClubDetail() {
     const unanswered = questions.some((q, idx) => {
       if (q.type === 'checkbox') return false; 
       const key = q.id || idx; 
-      // 답변이 없거나 공백인 경우
       return !answers[key] || !answers[key].toString().trim();
     });
     
@@ -153,12 +155,10 @@ export default function ClubDetail() {
 
       // (2) 답변 데이터 배열 변환
       const submissionDataArray = questions.map((q, idx) => {
-        // 질문 텍스트 우선순위: label -> question -> content -> 기본값
         const qText = q.label || q.question || q.content || `Question ${idx + 1}`;
         const key = q.id || idx;
         
         let val = answers[key];
-        // 체크박스 값 처리 (Yes/No)
         if (q.type === 'checkbox') {
           val = val === 'Yes' ? 'Yes' : 'No';
         }
@@ -235,6 +235,8 @@ export default function ClubDetail() {
 
   const isMember = ['manager', 'staff', 'member'].includes(myRole)
 
+  // --- [Render] ---
+  
   const navTabs = (
     <Tabs 
       value={activeTab} 
@@ -272,63 +274,93 @@ export default function ClubDetail() {
       
       <Box sx={{ 
         position: 'relative', width: '100%', height: { xs: 300, md: 450 }, 
-        backgroundImage: `url(${clubData.main_image_url || 'https://placehold.co/1920x600/1a237e/FFF?text=Welcome'})`,
-        backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end',
-        '&::before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)' }
+        bgcolor: '#1a237e', // 로딩 중 배경색 (이미지 로드 전 깜빡임 방지)
+        overflow: 'hidden', display: 'flex', alignItems: 'flex-end',
       }}>
+        {/* [NEW] 배경 이미지 로딩 처리 */}
+        {pageLoading ? (
+           <Skeleton variant="rectangular" width="100%" height="100%" animation="wave" sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
+        ) : (
+           <Box sx={{ 
+             position: 'absolute', top:0, left:0, width:'100%', height:'100%', 
+             backgroundImage: `url(${clubData.main_image_url || 'https://placehold.co/1920x600/1a237e/FFF?text=Welcome'})`, 
+             backgroundSize: 'cover', backgroundPosition: 'center', 
+             '&::before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0) 100%)' } 
+           }} />
+        )}
+
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1, pb: 6, color: 'white' }}>
           <Stack direction={{xs:'column', md:'row'}} alignItems={{xs:'flex-start', md:'flex-end'}} spacing={4}>
             <Stack direction="row" spacing={3} alignItems="flex-end" sx={{ flexGrow: 1 }}>
-              <Avatar 
-                src={clubData.icon_url} 
-                sx={{ 
-                  width: { xs: 100, md: 140 }, height: { xs: 100, md: 140 }, 
-                  bgcolor: stringToColor(clubData.name || ''), 
-                  fontSize: '3.5rem', fontWeight: 'bold', 
-                  border: '4px solid white', boxShadow: '0 12px 24px rgba(0,0,0,0.3)' 
-                }}
-              >
-                {clubData.name ? clubData.name[0] : '?'}
-              </Avatar>
-              <Box sx={{ mb: 1 }}>
-                {clubData.is_official && (
-                  <Chip 
-                    icon={<Verified sx={{ color: '#fff !important' }} />} 
-                    label={t('explore.official')} 
-                    size="small" 
-                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', backdropFilter: 'blur(5px)', mb: 1.5, fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.3)' }} 
-                  />
+              {/* [NEW] 아바타 로딩 처리 */}
+              {pageLoading ? (
+                <Skeleton variant="circular" width={140} height={140} sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
+              ) : (
+                <Avatar 
+                  src={clubData.icon_url} 
+                  sx={{ 
+                    width: { xs: 100, md: 140 }, height: { xs: 100, md: 140 }, 
+                    bgcolor: stringToColor(clubData.name || ''), 
+                    fontSize: '3.5rem', fontWeight: 'bold', 
+                    border: '4px solid white', boxShadow: '0 12px 24px rgba(0,0,0,0.3)' 
+                  }}
+                >
+                  {clubData.name ? clubData.name[0] : '?'}
+                </Avatar>
+              )}
+
+              <Box sx={{ mb: 1, width: '100%' }}>
+                {/* [NEW] 텍스트 로딩 처리 */}
+                {pageLoading ? (
+                  <>
+                    <Skeleton width="30%" height={40} sx={{ mb: 1, bgcolor: 'rgba(255,255,255,0.2)' }} />
+                    <Skeleton width="60%" height={30} sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
+                  </>
+                ) : (
+                  <>
+                    {clubData.is_official && (
+                      <Chip 
+                        icon={<Verified sx={{ color: '#fff !important' }} />} 
+                        label={t('explore.official')} 
+                        size="small" 
+                        sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', backdropFilter: 'blur(5px)', mb: 1.5, fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.3)' }} 
+                      />
+                    )}
+                    <Typography variant="h2" fontWeight="900" sx={{ textShadow: '0 4px 12px rgba(0,0,0,0.5)', fontSize: {xs:'2rem', md:'3.5rem'}, lineHeight: 1.1, mb: 1 }}>
+                      {clubData.name}
+                    </Typography>
+                    <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400, lineHeight: 1.5, maxWidth: 600 }}>
+                      {clubData.intro_title || t('club.home_tab.welcome_fallback')}
+                    </Typography>
+                  </>
                 )}
-                <Typography variant="h2" fontWeight="900" sx={{ textShadow: '0 4px 12px rgba(0,0,0,0.5)', fontSize: {xs:'2rem', md:'3.5rem'}, lineHeight: 1.1, mb: 1 }}>
-                  {clubData.name}
-                </Typography>
-                <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400, lineHeight: 1.5, maxWidth: 600 }}>
-                  {clubData.intro_title || t('club.home_tab.welcome_fallback')}
-                </Typography>
               </Box>
             </Stack>
             
-            <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
-              {!myRole && myRole !== 'pending' && (
-                <Button variant="contained" size="large" onClick={handleOpenJoin} sx={{ bgcolor: 'white', color: 'black', fontWeight: 'bold', px: 4, py: 1.5, '&:hover':{bgcolor:'#f5f5f5'} }}>
-                  {t('club.join_btn')}
-                </Button>
-              )}
-              {myRole === 'pending' && (
-                <Chip label={t('club.pending_badge')} color="warning" sx={{ height: 48, px: 2, fontSize: '1rem', fontWeight: 'bold', bgcolor: 'rgba(237, 108, 2, 0.9)', color: 'white' }} />
-              )}
-              {isAdmin && (
-                <Button 
-                  component="label" 
-                  variant="outlined" 
-                  startIcon={<PhotoCamera />} 
-                  sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.5)', height: 48, '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
-                >
-                  {t('club.cover_change')}
-                  <input type="file" hidden accept="image/*" onChange={handleCoverUpload} disabled={uploading} />
-                </Button>
-              )}
-            </Stack>
+            {/* 버튼 그룹 (로딩 중엔 숨김 or 스켈레톤 처리 가능하지만, 여기선 숨김) */}
+            {!pageLoading && (
+              <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
+                {!myRole && myRole !== 'pending' && (
+                  <Button variant="contained" size="large" onClick={handleOpenJoin} sx={{ bgcolor: 'white', color: 'black', fontWeight: 'bold', px: 4, py: 1.5, '&:hover':{bgcolor:'#f5f5f5'} }}>
+                    {t('club.join_btn')}
+                  </Button>
+                )}
+                {myRole === 'pending' && (
+                  <Chip label={t('club.pending_badge')} color="warning" sx={{ height: 48, px: 2, fontSize: '1rem', fontWeight: 'bold', bgcolor: 'rgba(237, 108, 2, 0.9)', color: 'white' }} />
+                )}
+                {isAdmin && (
+                  <Button 
+                    component="label" 
+                    variant="outlined" 
+                    startIcon={<PhotoCamera />} 
+                    sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.5)', height: 48, '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
+                  >
+                    {t('club.cover_change')}
+                    <input type="file" hidden accept="image/*" onChange={handleCoverUpload} disabled={uploading} />
+                  </Button>
+                )}
+              </Stack>
+            )}
           </Stack>
         </Container>
       </Box>
@@ -341,65 +373,20 @@ export default function ClubDetail() {
                 clubData={clubData} 
                 isManager={myRole === 'manager'} 
                 refreshClubInfo={fetchClubInfo} 
+                isLoading={pageLoading} // [NEW] 로딩 상태 전달
               />
             )}
             
-            {isMember && activeTab === 'my_group' && (
-              <GroupTab 
-                clubId={id} 
-                currentUserId={currentUserId} 
-                onNavigateToBoard={handleNavigateToBoard}
-                onNavigateToChat={handleNavigateToChat}
-              />
-            )}
-            
-            {isMember && activeTab === 'board' && (
-              <BoardTab 
-                clubId={id} 
-                isAdmin={isAdmin} 
-                myRole={myRole} 
-                currentUserId={currentUserId} 
-                initialGroupId={targetGroupId} 
-                initialPostId={targetPostId}
-              />
-            )}
-            
-            {isMember && activeTab === 'calendar' && (
-              <CalendarTab 
-                clubId={id} 
-                currentUserId={currentUserId} 
-                isAdmin={isAdmin} 
-                onNavigateToBoard={handleNavigateToBoard}
-              />
-            )}
-
-            {isMember && activeTab === 'archive' && (
-              <ArchiveTab 
-                clubId={id} 
-                isAdmin={isAdmin} 
-              />
-            )}
-
-            {isMember && activeTab === 'photo' && (
-              <PhotoArchiveTab 
-                clubId={id} 
-                currentUserId={currentUserId} 
-                myRole={myRole} 
-                groupMembers={myGroupMemberships} 
-              />
-            )}
-            
-            {isMember && activeTab === 'chat' && (
-              <ChatTab 
-                clubId={id} 
-                currentUserId={currentUserId} 
-                initialGroupId={targetGroupId}
-              />
-            )}
-
+            {/* ... (나머지 탭들은 로딩과 상관없이 렌더링됨) ... */}
+            {isMember && activeTab === 'my_group' && <GroupTab clubId={id} currentUserId={currentUserId} onNavigateToBoard={handleNavigateToBoard} onNavigateToChat={handleNavigateToChat} />}
+            {isMember && activeTab === 'board' && <BoardTab clubId={id} isAdmin={isAdmin} myRole={myRole} currentUserId={currentUserId} initialGroupId={targetGroupId} initialPostId={targetPostId} />}
+            {isMember && activeTab === 'calendar' && <CalendarTab clubId={id} currentUserId={currentUserId} isAdmin={isAdmin} onNavigateToBoard={handleNavigateToBoard} />}
+            {isMember && activeTab === 'archive' && <ArchiveTab clubId={id} isAdmin={isAdmin} />}
+            {isMember && activeTab === 'photo' && <PhotoArchiveTab clubId={id} currentUserId={currentUserId} myRole={myRole} groupMembers={myGroupMemberships} />}
+            {isMember && activeTab === 'chat' && <ChatTab clubId={id} currentUserId={currentUserId} initialGroupId={targetGroupId} />}
             {isMember && activeTab === 'group_manage' && <GroupManageTab clubId={id} isAdmin={isAdmin} currentUserId={currentUserId} />}
             {isMember && activeTab === 'member_manage' && isAdmin && <MemberManageTab clubId={id} myRole={myRole} />}
-            {isMember && activeTab === 'ledger' && isAdmin && <LedgerTab clubId={id} isAdmin={isAdmin} myRole = {myRole}/>}
+            {isMember && activeTab === 'ledger' && isAdmin && <LedgerTab clubId={id} isAdmin={isAdmin} myRole={myRole} />}
             {isMember && activeTab === 'settings' && isAdmin && <ClubSettingsTab clubId={id} />}
           </Box>
         </Fade>
@@ -418,7 +405,6 @@ export default function ClubDetail() {
            ) : (
              <Stack spacing={3} sx={{ mt: 1 }}>
                {questions.map((q, idx) => {
-                 // 질문 표시 우선순위: label -> question -> content -> 기본
                  const questionText = q.label || q.question || q.content || `Question ${idx + 1}`;
                  const answerKey = q.id || idx;
 
@@ -428,7 +414,6 @@ export default function ClubDetail() {
                        Q{idx + 1}. {questionText}
                      </Typography>
                      
-                     {/* 질문 타입에 따른 입력 필드 */}
                      {q.type === 'textarea' ? (
                        <TextField
                          fullWidth
@@ -450,7 +435,6 @@ export default function ClubDetail() {
                          label={t('common.yes')}
                        />
                      ) : (
-                       // 기본: text
                        <TextField
                          fullWidth
                          variant="outlined"

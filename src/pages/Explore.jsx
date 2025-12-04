@@ -4,13 +4,13 @@ import { supabase } from '../supabaseClient'
 import Layout from '../components/Layout'
 import { 
   Box, Typography, Paper, InputBase, IconButton, Button, Divider, 
-  Avatar, Chip, CircularProgress, Fade, Tooltip 
+  Avatar, Chip, CircularProgress, Fade, Tooltip, Skeleton // [추가] Skeleton
 } from '@mui/material'
 import { Search, Verified, Visibility, ArrowForward, EmojiEvents } from '@mui/icons-material'
-import { useTranslation } from 'react-i18next' // [추가]
+import { useTranslation } from 'react-i18next' 
 
 export default function Explore({ session }) {
-  const { t } = useTranslation() // [추가]
+  const { t } = useTranslation() 
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   
@@ -47,10 +47,8 @@ export default function Explore({ session }) {
     setSearchParams({ q: searchQuery })
   }
 
-  // 검색어가 없으면(빈 문자열) 모든 동아리가 표시됩니다.
   const filteredClubs = clubs.filter(c => {
     const query = (searchParams.get('q') || '').toLowerCase()
-    // query가 ''일 경우 includes는 항상 true를 반환하므로 전체 목록이 뜹니다.
     return c.name.toLowerCase().includes(query) || (c.intro_title && c.intro_title.toLowerCase().includes(query))
   })
 
@@ -66,7 +64,7 @@ export default function Explore({ session }) {
     <Layout>
       <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
         
-        {/* 상단 검색바 영역 고정 (Sticky Header) */}
+        {/* 상단 검색바 영역 고정 */}
         <Box 
           sx={{ 
             position: 'sticky', 
@@ -82,10 +80,10 @@ export default function Explore({ session }) {
           }}
         >
           <Typography variant="h4" fontWeight="900" gutterBottom sx={{ color: '#1e293b' }}>
-            {t('explore.title')} {/* [수정] */}
+            {t('explore.title')} 
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            {t('explore.desc')} {/* [수정] */}
+            {t('explore.desc')} 
           </Typography>
 
           <Paper
@@ -101,7 +99,7 @@ export default function Explore({ session }) {
             <IconButton sx={{ p: '10px', ml: 1 }}><Search /></IconButton>
             <InputBase
               sx={{ ml: 1, flex: 1, fontSize: '1.1rem' }}
-              placeholder={t('home.search_placeholder')} // [수정] 기존 home 리소스 재사용
+              placeholder={t('home.search_placeholder')} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -114,26 +112,39 @@ export default function Explore({ session }) {
                 '&:hover': { bgcolor: '#3730a3' }
               }}
             >
-              {t('common.search')} {/* [수정] */}
+              {t('common.search')} 
             </Button>
           </Paper>
         </Box>
 
-        {/* 하단 리스트 영역 (검색바 밑으로 스크롤됨) */}
+        {/* 하단 리스트 영역 */}
         <Box sx={{ px: 2, pb: 10 }}>
           <Divider textAlign="left" sx={{ mb: 4 }}>
-            <Chip label={t('explore.result_count', { count: filteredClubs.length })} sx={{ fontWeight: 'bold', bgcolor: '#f1f5f9' }} /> {/* [수정] */}
+            <Chip label={t('explore.result_count', { count: filteredClubs.length })} sx={{ fontWeight: 'bold', bgcolor: '#f1f5f9' }} /> 
           </Divider>
 
           {loading ? (
-            <Box sx={{ textAlign: 'center', mt: 10 }}><CircularProgress /></Box>
+             // [NEW] 로딩 스켈레톤 UI
+             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 3 }}>
+               {[1, 2, 3, 4, 5, 6].map((i) => (
+                 <Paper key={i} elevation={0} sx={{ p: 3, border: '1px solid #e2e8f0', borderRadius: 4 }}>
+                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                     <Skeleton variant="circular" width={56} height={56} />
+                     <Skeleton width={24} height={24} />
+                   </Box>
+                   <Skeleton width="60%" height={32} sx={{ mb: 1 }} />
+                   <Skeleton width="90%" height={20} />
+                   <Skeleton width="100%" height={40} sx={{ mt: 4, borderRadius: 3 }} />
+                 </Paper>
+               ))}
+             </Box>
           ) : (
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 3 }}>
               
               {filteredClubs.length === 0 && (
                 <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 10 }}>
                   <EmojiEvents sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
-                  <Typography color="text.secondary" fontSize="1.1rem">{t('explore.no_result')}</Typography> {/* [수정] */}
+                  <Typography color="text.secondary" fontSize="1.1rem">{t('explore.no_result')}</Typography> 
                 </Box>
               )}
 
@@ -162,7 +173,7 @@ export default function Explore({ session }) {
                           >
                             {club.name[0]}
                           </Avatar>
-                          {club.is_official && <Tooltip title={t('explore.official')}><Verified color="primary" /></Tooltip>} {/* [수정] */}
+                          {club.is_official && <Tooltip title={t('explore.official')}><Verified color="primary" /></Tooltip>} 
                         </Box>
 
                         <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
@@ -172,7 +183,7 @@ export default function Explore({ session }) {
                           mb: 3, minHeight: '40px', 
                           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' 
                         }}>
-                          {club.short_intro || club.intro_title || t('club.home_tab.content_fallback')} {/* [수정] */}
+                          {club.short_intro || club.intro_title || t('club.home_tab.content_fallback')} 
                         </Typography>
                       </Box>
                       
@@ -186,7 +197,7 @@ export default function Explore({ session }) {
                             onClick={() => navigate(`/club/${club.id}`)}
                             sx={{ borderRadius: 3, py: 1, borderColor: '#e2e8f0' }}
                           >
-                            {t('explore.join_btn')} {/* [수정] */}
+                            {t('explore.join_btn')} 
                           </Button>
                         ) : (
                           <Button 
@@ -196,7 +207,7 @@ export default function Explore({ session }) {
                             onClick={() => navigate(`/club/${club.id}`)}
                             sx={{ borderRadius: 3, py: 1, fontWeight: 'bold', boxShadow: 'none' }}
                           >
-                            {t('explore.view_btn')} {/* [수정] */}
+                            {t('explore.view_btn')} 
                           </Button>
                         )}
                       </Box>

@@ -5,7 +5,7 @@ import Layout from '../components/Layout'
 import { 
   Typography, Button, Box, Card, CardContent, CardActions, Chip, 
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, 
-  Paper, InputBase, Container, Fade, Avatar, Stack
+  Paper, InputBase, Container, Fade, Avatar, Stack, Skeleton 
 } from '@mui/material'
 import { Add, Delete, Search, ArrowForward, Groups, Explore } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next' 
@@ -16,6 +16,7 @@ export default function Home({ session }) {
   const [searchQuery, setSearchQuery] = useState('') 
   const [open, setOpen] = useState(false)
   const [newClubName, setNewClubName] = useState('')
+  const [loading, setLoading] = useState(true) // [NEW] 로딩 상태
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -23,22 +24,22 @@ export default function Home({ session }) {
   }, [session])
 
   const fetchClubs = async () => {
+    setLoading(true) // 로딩 시작
     const { data: mems } = await supabase.from('club_members').select('*, clubs(*)').eq('user_id', session.user.id)
     if (mems) setMyClubs(mems)
+    setLoading(false) // 로딩 끝
   }
 
-  // [수정됨] 동아리 생성 시 현재 언어로 소개글 저장
   const createClub = async () => {
     if (!newClubName) return
     
-    // 1. 현재 언어에 맞는 기본 텍스트 가져오기
     const defaultTitle = t('home.default_intro_title');
     const defaultContent = t('home.default_intro_content');
 
     const { data } = await supabase.from('clubs').insert([{ 
       name: newClubName,
-      intro_title: defaultTitle,   // [추가] 현재 언어로 제목 저장
-      intro_content: defaultContent // [추가] 현재 언어로 내용 저장
+      intro_title: defaultTitle,
+      intro_content: defaultContent
     }]).select()
 
     await supabase.from('club_members').insert([{ user_id: session.user.id, club_id: data[0].id, role: 'manager', status: 'approved' }])
@@ -151,14 +152,18 @@ export default function Home({ session }) {
           <Typography variant="h5" fontWeight="800" color="#1e293b">
             {t('home.my_clubs')} 
           </Typography>
-          <Chip 
-            label={myClubs.length} 
-            size="small" 
-            sx={{ ml: 2, fontWeight: 'bold', bgcolor: '#e2e8f0', color: '#475569' }} 
-          />
+          {/* 로딩 중에는 숫자 대신 스켈레톤 */}
+          {loading ? <Skeleton width={30} height={30} sx={{ ml: 2 }} /> : <Chip label={myClubs.length} size="small" sx={{ ml: 2, fontWeight: 'bold', bgcolor: '#e2e8f0', color: '#475569' }} />}
         </Box>
         
-        {myClubs.length === 0 ? (
+        {loading ? (
+          // [NEW] 로딩 스켈레톤 UI
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
+             {[1, 2, 3].map((i) => (
+                <Skeleton key={i} variant="rectangular" height={200} sx={{ borderRadius: 4 }} />
+             ))}
+          </Box>
+        ) : myClubs.length === 0 ? (
           <Paper 
             elevation={0}
             sx={{ 

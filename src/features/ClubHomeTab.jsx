@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { 
-  Box, Typography, Button, Paper, TextField, Stack, Fade
+  Box, Typography, Button, Paper, TextField, Stack, Fade, Skeleton 
 } from '@mui/material'
 import { Edit, Save } from '@mui/icons-material'
-import { useTranslation } from 'react-i18next' // [추가]
+import { useTranslation } from 'react-i18next' 
 
-export default function ClubHomeTab({ clubData, isManager, refreshClubInfo }) {
-  const { t } = useTranslation() // [추가]
+export default function ClubHomeTab({ clubData, isManager, refreshClubInfo, isLoading }) {
+  const { t } = useTranslation() 
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
@@ -27,40 +27,43 @@ export default function ClubHomeTab({ clubData, isManager, refreshClubInfo }) {
     
     if (error) alert(t('club.home_tab.save_fail'))
     else { 
-      setIsEditing(false)
-      refreshClubInfo()
+      setIsEditing(false); 
+      refreshClubInfo(); 
     }
   }
 
-  if (!clubData) return null
+  if (!clubData && !isLoading) return null
 
   return (
     <Fade in={true}>
       <Box sx={{ position: 'relative', mx: 'auto' }}>
         
-        {/* 편집 버튼 (우측 상단) */}
-        {isManager && (
+        {/* 편집 버튼 (로딩 중엔 숨김) */}
+        {isManager && !isLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             {isEditing ? (
               <Stack direction="row" spacing={1}>
-                <Button variant="outlined" onClick={() => setIsEditing(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button variant="contained" startIcon={<Save />} onClick={handleSave}>
-                  {t('common.save')}
-                </Button>
+                <Button variant="outlined" onClick={() => setIsEditing(false)}>{t('common.cancel')}</Button>
+                <Button variant="contained" startIcon={<Save />} onClick={handleSave}>{t('common.save')}</Button>
               </Stack>
             ) : (
-              <Button variant="text" startIcon={<Edit />} onClick={() => setIsEditing(true)}>
-                {t('club.home_tab.edit_intro')}
-              </Button>
+              <Button variant="text" startIcon={<Edit />} onClick={() => setIsEditing(true)}>{t('club.home_tab.edit_intro')}</Button>
             )}
           </Box>
         )}
 
         {/* 본문 내용 */}
         <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid #eee', minHeight: 300, bgcolor: isEditing ? '#fff' : '#fff' }}>
-          {isEditing ? (
+          {isLoading ? (
+            // [NEW] 로딩 스켈레톤 UI
+            <Stack spacing={2}>
+              <Skeleton variant="text" width="60%" height={60} />
+              <Skeleton variant="text" width="100%" />
+              <Skeleton variant="text" width="100%" />
+              <Skeleton variant="text" width="80%" />
+            </Stack>
+          ) : isEditing ? (
+            // 편집 모드 UI
             <Stack spacing={4}>
               <TextField 
                 label={t('club.home_tab.label_headline')} 
@@ -82,6 +85,7 @@ export default function ClubHomeTab({ clubData, isManager, refreshClubInfo }) {
               />
             </Stack>
           ) : (
+            // 일반 조회 모드 UI
             <>
               <Typography variant="h5" fontWeight="bold" gutterBottom color="text.primary" sx={{ mb: 3 }}>
                 {clubData.intro_title || t('club.home_tab.welcome_fallback')}
