@@ -3,8 +3,10 @@ import { supabase } from '../supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import { Container, Paper, Typography, TextField, Button, Alert, Stack, Box } from '@mui/material'
 import { Save, Logout } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function Register({ session, onComplete }) {
+  const { t } = useTranslation() // [추가]
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
@@ -18,13 +20,13 @@ export default function Register({ session, onComplete }) {
     setError('')
     
     // 기본 유효성 검사
-    if (password !== confirmPw) return setError('비밀번호가 일치하지 않습니다.')
-    if (password.length < 6) return setError('비밀번호는 6자 이상이어야 합니다.')
-    if (!username || !fullName) return setError('모든 정보를 입력해주세요.')
+    if (password !== confirmPw) return setError(t('register.err_password_match')) // [수정]
+    if (password.length < 6) return setError(t('register.err_password_length')) // [수정]
+    if (!username || !fullName) return setError(t('register.err_input_all')) // [수정]
 
     setLoading(true)
     try {
-      // [NEW] ★ 아이디 중복 체크 (SQL 함수 호출)
+      // 아이디 중복 체크
       const { data: exists, error: rpcError } = await supabase.rpc('check_username_exists', { 
         username_input: username 
       })
@@ -32,7 +34,7 @@ export default function Register({ session, onComplete }) {
       if (rpcError) throw rpcError
       
       if (exists) {
-        throw new Error('이미 사용 중인 아이디입니다. 다른 아이디를 입력해주세요.')
+        throw new Error(t('register.err_username_exists')) // [수정]
       }
 
       // 1. 비밀번호 설정
@@ -50,12 +52,11 @@ export default function Register({ session, onComplete }) {
         .eq('id', session.user.id)
 
       if (dbError) {
-        // 만약 찰나의 순간에 DB 제약조건에 걸렸을 경우를 대비
-        if (dbError.code === '23505') throw new Error('이미 사용 중인 아이디입니다.')
+        if (dbError.code === '23505') throw new Error(t('register.err_username_exists')) // [수정]
         throw dbError
       }
 
-      alert('가입이 완료되었습니다! 환영합니다.')
+      alert(t('register.msg_welcome')) // [수정]
       onComplete()
       navigate('/')
 
@@ -75,11 +76,10 @@ export default function Register({ session, onComplete }) {
     <Container maxWidth="xs" sx={{ height: '100vh', display: 'flex', alignItems: 'center' }}>
       <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: 2 }}>
         <Typography variant="h5" fontWeight="bold" align="center" gutterBottom>
-          👋 환영합니다!
+          {t('register.title')} {/* [수정] */}
         </Typography>
         <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-          서비스 이용을 위해 추가 정보를 입력해주세요.<br/>
-          (아이디와 비밀번호를 설정합니다)
+          {t('register.desc')} {/* [수정] */}
         </Typography>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -87,35 +87,35 @@ export default function Register({ session, onComplete }) {
         <form onSubmit={handleSubmit}>
           <Stack spacing={2}>
             <TextField 
-              label="아이디 (Username)" required fullWidth 
+              label={t('register.label_username')} required fullWidth  // [수정]
               value={username} onChange={e => setUsername(e.target.value)} 
-              helperText="영문, 숫자 사용 가능 (중복 불가)"
+              helperText={t('register.helper_username')} // [수정]
             />
             <TextField 
-              label="이름 (실명)" required fullWidth 
+              label={t('register.label_fullname')} required fullWidth  // [수정]
               value={fullName} onChange={e => setFullName(e.target.value)} 
             />
             
             <Box sx={{ mt: 2 }}>
               <Typography variant="caption" color="primary" fontWeight="bold">
-                🔒 로그인에 사용할 비밀번호 설정
+                {t('register.password_guide')} {/* [수정] */}
               </Typography>
               <TextField 
-                label="비밀번호" type="password" required fullWidth sx={{ mt: 1 }}
+                label={t('register.label_password')} type="password" required fullWidth sx={{ mt: 1 }} // [수정]
                 value={password} onChange={e => setPassword(e.target.value)} 
               />
               <TextField 
-                label="비밀번호 확인" type="password" required fullWidth sx={{ mt: 2 }}
+                label={t('register.label_confirm_password')} type="password" required fullWidth sx={{ mt: 2 }} // [수정]
                 value={confirmPw} onChange={e => setConfirmPw(e.target.value)} 
               />
             </Box>
 
             <Button type="submit" variant="contained" size="large" disabled={loading} startIcon={<Save />}>
-              {loading ? '확인 중...' : '가입 완료'}
+              {loading ? t('common.loading') : t('register.btn_complete')} {/* [수정] */}
             </Button>
             
             <Button variant="text" color="secondary" onClick={handleLogout} startIcon={<Logout />}>
-              처음으로 돌아가기 (가입 취소)
+              {t('register.btn_cancel')} {/* [수정] */}
             </Button>
           </Stack>
         </form>

@@ -8,8 +8,10 @@ import {
   Groups, ArrowForward, Article, Chat, Lock, CheckCircle, 
   Public, ArrowOutward 
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onNavigateToChat }) {
+  const { t } = useTranslation() // [추가]
   const [groups, setGroups] = useState([])
   const [myGroupIds, setMyGroupIds] = useState([])
 
@@ -28,7 +30,7 @@ export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onN
   }, [clubId, currentUserId])
 
   const myGroups = groups.filter(g => myGroupIds.includes(g.id))
-  const otherGroups = groups.filter(g => !myGroupIds.includes(g.id))
+  // const otherGroups = groups.filter(g => !myGroupIds.includes(g.id)) // (사용 안 함)
 
   // 카드 렌더링용 공통 컴포넌트
   const GroupCard = ({ group, isMember }) => (
@@ -62,9 +64,9 @@ export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onN
               {isMember ? <Groups /> : <Lock />}
             </Box>
             {isMember ? (
-              <Chip label="참여중" size="small" icon={<CheckCircle sx={{ fontSize: 14 }} />} sx={{ bgcolor: '#ecfdf5', color: '#059669', fontWeight: 'bold', border: '1px solid #a7f3d0' }} />
+              <Chip label={t('group.tab.joined')} size="small" icon={<CheckCircle sx={{ fontSize: 14 }} />} sx={{ bgcolor: '#ecfdf5', color: '#059669', fontWeight: 'bold', border: '1px solid #a7f3d0' }} /> // [수정]
             ) : (
-              <Chip label="비공개" size="small" icon={<Lock sx={{ fontSize: 14 }} />} sx={{ bgcolor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }} />
+              <Chip label={t('group.tab.private')} size="small" icon={<Lock sx={{ fontSize: 14 }} />} sx={{ bgcolor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }} /> // [수정]
             )}
           </Box>
 
@@ -74,8 +76,8 @@ export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onN
           
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
             {isMember 
-              ? "이 그룹의 활동 내용을 확인하고 멤버들과 소통해보세요." 
-              : "이 그룹은 멤버에게만 공개된 공간입니다."}
+              ? t('group.tab.desc_joined') 
+              : t('group.tab.desc_private')} {/* [수정] */}
           </Typography>
         </Box>
 
@@ -93,7 +95,7 @@ export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onN
                 '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc', color: '#1e293b' }
               }}
             >
-              게시판
+              {t('club.tabs.board')} {/* [수정] 기존 board 탭 이름 재사용 */}
             </Button>
             <Button 
               fullWidth 
@@ -106,7 +108,7 @@ export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onN
                 '&:hover': { bgcolor: '#4338ca', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }
               }}
             >
-              채팅
+              {t('club.tabs.chat')} {/* [수정] 기존 chat 탭 이름 재사용 */}
             </Button>
           </Stack>
         ) : (
@@ -116,7 +118,7 @@ export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onN
             variant="outlined" 
             sx={{ mt: 'auto', borderRadius: 2, borderColor: '#e2e8f0' }}
           >
-            접근 권한 없음
+            {t('group.tab.no_access')} {/* [수정] */}
           </Button>
         )}
       </CardContent>
@@ -130,14 +132,14 @@ export default function GroupTab({ clubId, currentUserId, onNavigateToBoard, onN
       <Box sx={{ mb: 6 }}>
         <Typography variant="h5" fontWeight="900" color="text.primary" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{ p: 1, borderRadius: '50%', bgcolor: '#eef2ff', color: '#4F46E5' }}><Groups /></Box>
-          내 소속 그룹
+          {t('group.tab.my_groups')} {/* [수정] */}
           <Chip label={myGroups.length} size="small" sx={{ fontWeight: 'bold', bgcolor: '#e2e8f0' }} />
         </Typography>
         
         {myGroups.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#f8fafc', borderRadius: 4, border: '1px dashed #cbd5e1' }}>
             <Groups sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
-            <Typography color="text.secondary">아직 소속된 소그룹이 없습니다.</Typography>
+            <Typography color="text.secondary">{t('group.tab.no_joined_groups')}</Typography> {/* [수정] */}
           </Box>
         ) : (
           // CSS Grid 레이아웃 (MUI Grid 대신 사용)

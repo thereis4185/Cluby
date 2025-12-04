@@ -5,19 +5,20 @@ import {
   TextField, IconButton, Avatar, Chip
 } from '@mui/material'
 import { Send, Public, Workspaces, Groups, Chat as ChatIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function ChatTab({ clubId, currentUserId }) {
-  const [channels, setChannels] = useState([{ id: 'general', name: '전체 채팅', type: 'general' }])
+  const { t } = useTranslation() // [추가]
+  const [channels, setChannels] = useState([{ id: 'general', name: t('chat.general_chat'), type: 'general' }]) // [수정] 초기값도 번역 적용 필요하지만, useEffect에서 덮어씌워지므로 일단 유지
   const [activeChannel, setActiveChannel] = useState(channels[0])
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const messagesEndRef = useRef(null)
   const [myProfile, setMyProfile] = useState(null)
 
-  // 0. 내 프로필 정보 (이름 포함해서 가져오기)
+  // 0. 내 프로필 정보
   useEffect(() => {
     const getProfile = async () => {
-      // [수정] full_name 추가 조회
       const { data } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', currentUserId).single()
       if (data) setMyProfile(data)
     }
@@ -39,19 +40,20 @@ export default function ChatTab({ clubId, currentUserId }) {
         type: 'group' 
       })) || []
 
-      setChannels([{ id: 'general', name: '전체 채팅', type: 'general' }, ...groupChannels])
-      setActiveChannel({ id: 'general', name: '전체 채팅', type: 'general' })
+      // [수정] "전체 채팅" 번역 적용
+      const generalChat = { id: 'general', name: t('chat.general_chat'), type: 'general' };
+      setChannels([generalChat, ...groupChannels])
+      setActiveChannel(prev => prev.id === 'general' ? generalChat : prev) // 이름 업데이트
     }
     if (currentUserId && clubId) fetchMyChannels()
-  }, [clubId, currentUserId])
+  }, [clubId, currentUserId, t]) // t 추가
 
-  // 2. 메시지 로딩 & 실시간 구독
+  // 2. 메시지 로딩 & 실시간 구독 (기존 로직 동일)
   useEffect(() => {
     if (!activeChannel) return
 
     const fetchMessages = async () => {
       let query = supabase.from('chat_messages')
-        // [수정] profiles(username, full_name, avatar_url) -> 이름 추가 조회
         .select('*, profiles(username, full_name, avatar_url)')
         .eq('club_id', clubId)
         .order('created_at', { ascending: true })
@@ -86,7 +88,6 @@ export default function ChatTab({ clubId, currentUserId }) {
           const isGroup = activeChannel.type === 'group' && payload.new.group_id === activeChannel.id
           
           if (isGeneral || isGroup) {
-            // [수정] 실시간 메시지 수신 시에도 이름(full_name) 가져오기
             const { data: userProfile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', payload.new.user_id).single()
             const newMsg = { ...payload.new, profiles: userProfile }
             setMessages(prev => [...prev, newMsg])
@@ -146,7 +147,7 @@ export default function ChatTab({ clubId, currentUserId }) {
       <Paper sx={{ width: { xs: '100%', md: '30%' }, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 3 }}>
         <Box sx={{ p: 2, bgcolor: '#f8fafc', borderBottom: '1px solid #eee' }}>
           <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ChatIcon color="primary" /> 채팅 목록
+            <ChatIcon color="primary" /> {t('chat.list_title')} {/* [수정] */}
           </Typography>
         </Box>
         <List>
@@ -171,14 +172,13 @@ export default function ChatTab({ clubId, currentUserId }) {
         
         <Box sx={{ p: 2, borderBottom: '1px solid #eee', bgcolor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6" fontWeight="bold">{activeChannel.name}</Typography>
-          <Chip label="실시간" color="success" size="small" variant="outlined" />
+          <Chip label={t('chat.badge_live')} color="success" size="small" variant="outlined" /> {/* [수정] */}
         </Box>
 
         <Box sx={{ flex: 1, overflowY: 'auto', p: 3, bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {messages.map((msg) => {
             const isMe = msg.user_id === currentUserId
-            // [수정] 이름 표시 로직: full_name이 있으면 쓰고, 없으면 username(아이디) 사용
-            const displayName = msg.profiles?.full_name || msg.profiles?.username || '알 수 없음'
+            const displayName = msg.profiles?.full_name || msg.profiles?.username || t('chat.unknown_user') // [수정]
             
             return (
               <Box key={msg.id} sx={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap: 1.5 }}>
@@ -188,7 +188,6 @@ export default function ChatTab({ clubId, currentUserId }) {
                   </Avatar>
                 )}
                 <Box sx={{ maxWidth: '70%' }}>
-                  {/* [수정] 이름 표시 */}
                   {!isMe && <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>{displayName}</Typography>}
                   <Paper 
                     elevation={0} 
@@ -199,7 +198,7 @@ export default function ChatTab({ clubId, currentUserId }) {
                       border: isMe ? 'none' : '1px solid #e2e8f0',
                       borderTopLeftRadius: !isMe ? 0 : 16,
                       borderTopRightRadius: isMe ? 0 : 16
-                    }}
+                    }} 
                   >
                     <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{msg.content}</Typography>
                   </Paper>
@@ -215,7 +214,7 @@ export default function ChatTab({ clubId, currentUserId }) {
 
         <Box component="form" onSubmit={handleSend} sx={{ p: 2, bgcolor: 'white', borderTop: '1px solid #eee', display: 'flex', gap: 1 }}>
           <TextField 
-            fullWidth size="small" placeholder="메시지를 입력하세요..." 
+            fullWidth size="small" placeholder={t('chat.input_placeholder')} // [수정]
             value={newMessage} onChange={e => setNewMessage(e.target.value)}
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 20 } }}
           />

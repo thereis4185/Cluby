@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { 
   Paper, Box, Typography, TextField, Select, MenuItem, Button, 
-  IconButton, Divider, Stack, Chip 
+  IconButton, Divider, Stack, Chip, ToggleButton, ToggleButtonGroup
 } from '@mui/material'
-import { Delete, Add } from '@mui/icons-material'
+import { Delete, Add, Settings, CurrencyExchange } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 
-export default function LedgerTab({ clubId }) {
+export default function LedgerTab({ clubId, isAdmin }) { // [수정] isAdmin prop 필요
+  const { t } = useTranslation()
   const [ledgers, setLedgers] = useState([])
+  const [currency, setCurrency] = useState('KRW') // [NEW] 화폐 단위 (KRW | JPY)
+  
   const [data, setData] = useState({ 
     date: new Date().toISOString().split('T')[0], 
     desc: '', 
@@ -15,7 +19,28 @@ export default function LedgerTab({ clubId }) {
     amount: '' 
   })
 
-  useEffect(() => { fetchLedgers() }, [clubId])
+  useEffect(() => { 
+    if (clubId) {
+      fetchClubCurrency() // [NEW] 클럽 설정 불러오기
+      fetchLedgers() 
+    }
+  }, [clubId])
+
+  // [NEW] 클럽의 화폐 단위 가져오기
+  const fetchClubCurrency = async () => {
+    const { data } = await supabase.from('clubs').select('currency').eq('id', clubId).single()
+    if (data && data.currency) setCurrency(data.currency)
+  }
+
+  // [NEW] 화폐 단위 변경 (관리자 전용)
+  const handleCurrencyChange = async (e, newCurrency) => {
+    if (!newCurrency) return
+    setCurrency(newCurrency)
+    
+    // DB에 저장 (clubs 테이블에 currency 컬럼이 있어야 함)
+    const { error } = await supabase.from('clubs').update({ currency: newCurrency }).eq('id', clubId)
+    if (error) alert('Error: ' + error.message)
+  }
 
   const fetchLedgers = async () => {
     const { data } = await supabase.from('ledgers').select('*').eq('club_id', clubId).order('date', {ascending: false}).order('created_at', {ascending: false})
@@ -23,20 +48,20 @@ export default function LedgerTab({ clubId }) {
   }
 
   const handleAdd = async () => {
-    if (!data.desc || !data.amount) return alert('내용과 금액을 입력해주세요.')
+    if (!data.desc || !data.amount) return alert(t('ledger.alert_input_all')) // [수정]
     const { error } = await supabase.from('ledgers').insert([{ 
       club_id: clubId, date: data.date, description: data.desc, type: data.type, amount: parseInt(data.amount) 
     }])
-    if (error) alert('기록 실패: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else {
-      alert('기록되었습니다.')
+      alert(t('ledger.msg_recorded')) // [수정]
       setData({ ...data, desc: '', amount: '' })
       fetchLedgers()
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return
+    if (!confirm(t('common.confirm_delete'))) return
     await supabase.from('ledgers').delete().eq('id', id)
     fetchLedgers()
   }
@@ -45,33 +70,54 @@ export default function LedgerTab({ clubId }) {
   const expense = ledgers.filter(l => l.type === 'expense').reduce((acc, cur) => acc + cur.amount, 0)
   const balance = income - expense
 
+  // [NEW] 화폐 단위 심볼 및 포맷터
+  const currencySymbol = currency === 'KRW' ? '원' : '円';
+  const formatMoney = (amount) => amount.toLocaleString();
+
   return (
     <Box>
       {/* 1. 요약 대시보드 */}
-      <Paper elevation={0} variant="outlined" sx={{ p: 4, mb: 4, borderRadius: 3, bgcolor: '#fff', borderColor: '#e2e8f0' }}>
+      <Paper elevation={0} variant="outlined" sx={{ p: 4, mb: 4, borderRadius: 3, bgcolor: '#fff', borderColor: '#e2e8f0', position: 'relative' }}>
+        
+        {/* [NEW] 관리자 전용 화폐 단위 설정 버튼 (우측 상단) */}
+        {isAdmin && (
+          <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
+            <ToggleButtonGroup
+              value={currency}
+              exclusive
+              onChange={handleCurrencyChange}
+              size="small"
+              sx={{ height: 24 }}
+            >
+              <ToggleButton value="KRW" sx={{ fontSize: '0.7rem', px: 1 }}>KRW (원)</ToggleButton>
+              <ToggleButton value="JPY" sx={{ fontSize: '0.7rem', px: 1 }}>JPY (円)</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
+
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-around" alignItems="center">
           
           <Box sx={{ textAlign: 'center', width: '100%' }}>
-            <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mb: 1 }}>총 수입</Typography>
-            <Typography variant="h6" fontWeight="bold" sx={{ color: '#10B981' }}>+{income.toLocaleString()}</Typography>
+            <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mb: 1 }}>{t('ledger.total_income')}</Typography> {/* [수정] */}
+            <Typography variant="h6" fontWeight="bold" sx={{ color: '#10B981' }}>+{formatMoney(income)}</Typography>
           </Box>
           
           <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
           <Divider flexItem sx={{ display: { xs: 'block', sm: 'none' }, width: '100%' }} />
 
           <Box sx={{ textAlign: 'center', width: '100%' }}>
-            <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mb: 1 }}>총 지출</Typography>
-            <Typography variant="h6" fontWeight="bold" sx={{ color: '#EF4444' }}>-{expense.toLocaleString()}</Typography>
+            <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mb: 1 }}>{t('ledger.total_expense')}</Typography> {/* [수정] */}
+            <Typography variant="h6" fontWeight="bold" sx={{ color: '#EF4444' }}>-{formatMoney(expense)}</Typography>
           </Box>
 
           <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
           <Divider flexItem sx={{ display: { xs: 'block', sm: 'none' }, width: '100%' }} />
 
           <Box sx={{ textAlign: 'center', width: '100%' }}>
-            <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mb: 1 }}>현재 잔액</Typography>
-            {/* [수정] 폰트 사이즈 h5로 줄이고 굵기 조정 */}
+            <Typography variant="body2" color="text.secondary" fontWeight="bold" sx={{ mb: 1 }}>{t('ledger.current_balance')}</Typography> {/* [수정] */}
             <Typography variant="h5" fontWeight="bold" sx={{ color: '#1e293b' }}>
-              {balance.toLocaleString()}<span style={{ fontSize: '1rem', fontWeight: '500', color: '#94a3b8', marginLeft: 4 }}>원</span>
+              {formatMoney(balance)}
+              <span style={{ fontSize: '1rem', fontWeight: '500', color: '#94a3b8', marginLeft: 4 }}>{currencySymbol}</span>
             </Typography>
           </Box>
         </Stack>
@@ -80,7 +126,7 @@ export default function LedgerTab({ clubId }) {
       {/* 2. 입력 폼 */}
       <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 3, bgcolor: '#F8FAFC', border: '1px solid #e2e8f0' }}>
         <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: '#334155' }}>
-          <Add fontSize="small" color="primary" /> 장부 기록하기
+          <Add fontSize="small" color="primary" /> {t('ledger.record_new')} {/* [수정] */}
         </Typography>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
           <TextField 
@@ -93,25 +139,25 @@ export default function LedgerTab({ clubId }) {
             value={data.type} onChange={e => setData({ ...data, type: e.target.value })} 
             sx={{ width: { xs: '100%', md: 120 }, bgcolor: 'white' }}
           >
-            <MenuItem value="expense" sx={{ color: '#EF4444', fontWeight:'bold' }}>지출 (-)</MenuItem>
-            <MenuItem value="income" sx={{ color: '#10B981', fontWeight:'bold' }}>수입 (+)</MenuItem>
+            <MenuItem value="expense" sx={{ color: '#EF4444', fontWeight:'bold' }}>{t('ledger.type_expense')}</MenuItem> {/* [수정] */}
+            <MenuItem value="income" sx={{ color: '#10B981', fontWeight:'bold' }}>{t('ledger.type_income')}</MenuItem> {/* [수정] */}
           </Select>
           <TextField 
-            placeholder="내용 (예: 정기 회식비)" size="small" fullWidth 
+            placeholder={t('ledger.placeholder_desc')} size="small" fullWidth  // [수정]
             value={data.desc} onChange={e => setData({ ...data, desc: e.target.value })} 
             sx={{ bgcolor: 'white' }}
           />
           <TextField 
-            placeholder="금액" type="number" size="small" 
+            placeholder={t('ledger.placeholder_amount')} type="number" size="small" // [수정]
             value={data.amount} onChange={e => setData({ ...data, amount: e.target.value })} 
             sx={{ width: { xs: '100%', md: 180 }, bgcolor: 'white' }} 
-            InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">원</Typography> }}
+            InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">{currencySymbol}</Typography> }} // [수정]
           />
           <Button 
             variant="contained" onClick={handleAdd} disableElevation 
             sx={{ minWidth: 90, height: 40, fontWeight: 'bold', bgcolor: '#334155', '&:hover': { bgcolor: '#1e293b' } }}
           >
-            추가
+            {t('common.create')} {/* [수정] */}
           </Button>
         </Stack>
       </Paper>
@@ -135,7 +181,7 @@ export default function LedgerTab({ clubId }) {
               {/* 날짜 */}
               <Box sx={{ textAlign: 'center', minWidth: 50 }}>
                 <Typography variant="caption" display="block" color="text.secondary" fontWeight="bold">
-                  {l.date.split('-')[1]}월
+                  {l.date.split('-')[1]}
                 </Typography>
                 <Typography variant="h6" display="block" fontWeight="bold" lineHeight={1} color="#475569">
                   {l.date.split('-')[2]}
@@ -148,7 +194,7 @@ export default function LedgerTab({ clubId }) {
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Chip 
-                    label={l.type === 'income' ? '수입' : '지출'} 
+                    label={l.type === 'income' ? t('ledger.chip_income') : t('ledger.chip_expense')} // [수정]
                     size="small" 
                     sx={{ 
                       height: 22, fontSize: '0.75rem', fontWeight: '800',
@@ -167,7 +213,6 @@ export default function LedgerTab({ clubId }) {
             
             {/* 우측: 금액 & 삭제 */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              {/* [수정] 폰트 스타일 변경: 모노스페이스 제거, 볼드체, 사이즈 키움 */}
               <Typography 
                 variant="subtitle1" 
                 fontWeight="bold"
@@ -177,7 +222,7 @@ export default function LedgerTab({ clubId }) {
                   letterSpacing: '-0.5px'
                 }}
               >
-                {l.type === 'income' ? '+' : '-'}{l.amount.toLocaleString()}
+                {l.type === 'income' ? '+' : '-'}{formatMoney(l.amount)}
               </Typography>
               <IconButton size="small" onClick={() => handleDelete(l.id)} sx={{ color: '#e2e8f0', '&:hover': { color: '#ef4444' } }}>
                 <Delete fontSize="small" />
@@ -188,7 +233,7 @@ export default function LedgerTab({ clubId }) {
         
         {ledgers.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary', bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #e2e8f0' }}>
-            <Typography>아직 기록된 장부 내역이 없습니다.</Typography>
+            <Typography>{t('ledger.no_records')}</Typography> {/* [수정] */}
           </Box>
         )}
       </Stack>

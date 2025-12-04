@@ -19,15 +19,16 @@ import ChatTab from '../features/ChatTab'
 import { 
   Tabs, Tab, Box, Typography, Container, Stack, Chip, Button, Fade, Avatar,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  // [추가] 체크박스 컴포넌트
   Checkbox, FormControlLabel 
 } from '@mui/material'
 import { 
   Verified, PhotoCamera, Settings 
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // 다국어 Hook
 
 export default function ClubDetail() {
   const { id } = useParams()
+  const { t } = useTranslation() 
   
   // --- [State: 인증 및 권한] ---
   const [isAdmin, setIsAdmin] = useState(false)
@@ -104,7 +105,7 @@ export default function ClubDetail() {
 
   // 1. 가입 버튼 클릭 시: 질문 로드
   const handleOpenJoin = async () => {
-    if (!currentUserId) return alert('로그인이 필요합니다.');
+    if (!currentUserId) return alert(t('club.alert_login_required'));
     
     setLoadingQuestions(true);
     const { data, error } = await supabase
@@ -114,8 +115,7 @@ export default function ClubDetail() {
       .maybeSingle();
 
     if (error) {
-      // 데이터가 아예 없는 경우(406)도 포함될 수 있으므로 에러 처리는 유연하게
-      console.log(error);
+      // 데이터가 없거나 에러인 경우 빈 배열로 처리
       setQuestions([]);
       setAnswers({});
       setOpenJoinDialog(true);
@@ -129,20 +129,20 @@ export default function ClubDetail() {
 
   // 2. 가입 신청 최종 제출
   const handleSubmitApplication = async () => {
-    // 필수 체크 (체크박스는 값이 없으면 false/"No" 처리하므로 체크 제외 가능하지만, 여기선 텍스트 위주로 체크)
+    // 필수 체크 (체크박스 제외)
     const unanswered = questions.some((q, idx) => {
-      // 체크박스는 필수 체크에서 제외하거나, 반드시 동의해야 한다면 로직 추가 필요
       if (q.type === 'checkbox') return false; 
       const key = q.id || idx; 
-      return !answers[key] || !answers[key].trim();
+      // 답변이 없거나 공백인 경우
+      return !answers[key] || !answers[key].toString().trim();
     });
     
-    if (unanswered) return alert('모든 필수 질문에 답변해주세요.');
+    if (unanswered) return alert(t('club.alert_answer_required'));
 
-    if (!confirm('작성한 내용으로 가입 신청하시겠습니까?')) return;
+    if (!confirm(t('club.confirm_submit'))) return;
 
     try {
-      // (1) 멤버 테이블에 'pending' 상태로 추가
+      // (1) 멤버 테이블에 'pending' 추가
       const { error: memberError } = await supabase.from('club_members').insert([{ 
         user_id: currentUserId, 
         club_id: id, 
@@ -153,13 +153,14 @@ export default function ClubDetail() {
 
       // (2) 답변 데이터 배열 변환
       const submissionDataArray = questions.map((q, idx) => {
-        const qText = q.label || q.question || `질문 ${idx + 1}`;
+        // 질문 텍스트 우선순위: label -> question -> content -> 기본값
+        const qText = q.label || q.question || q.content || `Question ${idx + 1}`;
         const key = q.id || idx;
         
-        // 체크박스인 경우 값이 없으면 '아니오'로 저장
         let val = answers[key];
+        // 체크박스 값 처리 (Yes/No)
         if (q.type === 'checkbox') {
-          val = val === '예' ? '예' : '아니오';
+          val = val === 'Yes' ? 'Yes' : 'No';
         }
 
         return {
@@ -179,13 +180,13 @@ export default function ClubDetail() {
 
       if (subError) throw subError;
 
-      alert('가입 신청이 완료되었습니다! 승인을 기다려주세요.');
+      alert(t('club.msg_submitted'));
       setOpenJoinDialog(false);
       checkPermission(currentUserId);
 
     } catch (err) {
       console.error(err);
-      alert('신청 실패: ' + err.message);
+      alert('Error: ' + err.message);
     }
   }
 
@@ -198,7 +199,7 @@ export default function ClubDetail() {
       const { data } = supabase.storage.from('club_files').getPublicUrl(filePath)
       await supabase.from('clubs').update({ main_image_url: data.publicUrl }).eq('id', id)
       fetchClubInfo()
-    } catch(err) { alert('업로드 실패') }
+    } catch(err) { alert('Error') }
     setUploading(false)
   }
 
@@ -234,8 +235,6 @@ export default function ClubDetail() {
 
   const isMember = ['manager', 'staff', 'member'].includes(myRole)
 
-  // --- [Render] ---
-  
   const navTabs = (
     <Tabs 
       value={activeTab} 
@@ -250,20 +249,20 @@ export default function ClubDetail() {
         '& .MuiTabs-indicator': { bgcolor: '#4F46E5', height: 3, borderRadius: '3px 3px 0 0' }
       }}
     >
-      <Tab label="홈" value="home" />
-      {isMember && <Tab label="게시판" value="board" />}
-      {isMember && <Tab label="캘린더" value="calendar" />}
+      <Tab label={t('club.tabs.home')} value="home" />
+      {isMember && <Tab label={t('club.tabs.board')} value="board" />}
+      {isMember && <Tab label={t('club.tabs.calendar')} value="calendar" />}
       
-      {isMember && <Tab label="자료실" value="archive" />} 
-      {isMember && <Tab label="사진첩" value="photo" />}   
+      {isMember && <Tab label={t('club.tabs.archive')} value="archive" />} 
+      {isMember && <Tab label={t('club.tabs.photo')} value="photo" />} 
       
-      {isMember && <Tab label="그룹" value="my_group" />}
-      {isMember && <Tab label="채팅" value="chat" />}
+      {isMember && <Tab label={t('club.tabs.group')} value="my_group" />}
+      {isMember && <Tab label={t('club.tabs.chat')} value="chat" />}
       
       {/* 관리자 메뉴 */}
-      {isMember && <Tab label="그룹 관리" value="group_manage" />}
-      {isMember && isAdmin && <Tab label="멤버 관리" value="member_manage"/>}
-      {isMember && isAdmin && <Tab label="회계장부" value="ledger"/>}
+      {isMember && <Tab label={t('club.tabs.group_manage')} value="group_manage" />}
+      {isMember && isAdmin && <Tab label={t('club.tabs.member_manage')} value="member_manage"/>}
+      {isMember && isAdmin && <Tab label={t('club.tabs.ledger')} value="ledger"/>}
       {isMember && isAdmin && <Tab icon={<Settings sx={{fontSize:20}}/>} value="settings" sx={{ minWidth: 50, px: 1 }} />}
     </Tabs>
   )
@@ -295,7 +294,8 @@ export default function ClubDetail() {
                 {clubData.is_official && (
                   <Chip 
                     icon={<Verified sx={{ color: '#fff !important' }} />} 
-                    label="공식 인증" size="small" 
+                    label={t('explore.official')} 
+                    size="small" 
                     sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', backdropFilter: 'blur(5px)', mb: 1.5, fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.3)' }} 
                   />
                 )}
@@ -303,7 +303,7 @@ export default function ClubDetail() {
                   {clubData.name}
                 </Typography>
                 <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400, lineHeight: 1.5, maxWidth: 600 }}>
-                  {clubData.intro_title || '환영합니다!'}
+                  {clubData.intro_title || t('club.home_tab.welcome_fallback')}
                 </Typography>
               </Box>
             </Stack>
@@ -311,11 +311,11 @@ export default function ClubDetail() {
             <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
               {!myRole && myRole !== 'pending' && (
                 <Button variant="contained" size="large" onClick={handleOpenJoin} sx={{ bgcolor: 'white', color: 'black', fontWeight: 'bold', px: 4, py: 1.5, '&:hover':{bgcolor:'#f5f5f5'} }}>
-                  가입 신청하기
+                  {t('club.join_btn')}
                 </Button>
               )}
               {myRole === 'pending' && (
-                <Chip label="승인 대기중" color="warning" sx={{ height: 48, px: 2, fontSize: '1rem', fontWeight: 'bold', bgcolor: 'rgba(237, 108, 2, 0.9)', color: 'white' }} />
+                <Chip label={t('club.pending_badge')} color="warning" sx={{ height: 48, px: 2, fontSize: '1rem', fontWeight: 'bold', bgcolor: 'rgba(237, 108, 2, 0.9)', color: 'white' }} />
               )}
               {isAdmin && (
                 <Button 
@@ -324,7 +324,7 @@ export default function ClubDetail() {
                   startIcon={<PhotoCamera />} 
                   sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.5)', height: 48, '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
                 >
-                  커버 변경
+                  {t('club.cover_change')}
                   <input type="file" hidden accept="image/*" onChange={handleCoverUpload} disabled={uploading} />
                 </Button>
               )}
@@ -359,7 +359,7 @@ export default function ClubDetail() {
                 isAdmin={isAdmin} 
                 myRole={myRole} 
                 currentUserId={currentUserId} 
-                initialGroupId={targetGroupId}
+                initialGroupId={targetGroupId} 
                 initialPostId={targetPostId}
               />
             )}
@@ -383,9 +383,9 @@ export default function ClubDetail() {
             {isMember && activeTab === 'photo' && (
               <PhotoArchiveTab 
                 clubId={id} 
-                currentUserId={currentUserId}
-                myRole={myRole}
-                groupMembers={myGroupMemberships}
+                currentUserId={currentUserId} 
+                myRole={myRole} 
+                groupMembers={myGroupMemberships} 
               />
             )}
             
@@ -399,7 +399,7 @@ export default function ClubDetail() {
 
             {isMember && activeTab === 'group_manage' && <GroupManageTab clubId={id} isAdmin={isAdmin} currentUserId={currentUserId} />}
             {isMember && activeTab === 'member_manage' && isAdmin && <MemberManageTab clubId={id} myRole={myRole} />}
-            {isMember && activeTab === 'ledger' && isAdmin && <LedgerTab clubId={id} />}
+            {isMember && activeTab === 'ledger' && isAdmin && <LedgerTab clubId={id} isAdmin={isAdmin} />}
             {isMember && activeTab === 'settings' && isAdmin && <ClubSettingsTab clubId={id} />}
           </Box>
         </Fade>
@@ -407,19 +407,19 @@ export default function ClubDetail() {
 
       {/* 가입 신청서 모달 */}
       <Dialog open={openJoinDialog} onClose={() => setOpenJoinDialog(false)} maxWidth="sm" fullWidth>
-         <DialogTitle sx={{ fontWeight: 'bold' }}>가입 신청서 작성</DialogTitle>
+         <DialogTitle sx={{ fontWeight: 'bold' }}>{t('club.join_modal_title')}</DialogTitle>
          <DialogContent dividers>
            {loadingQuestions ? (
-             <Typography sx={{ p: 2, textAlign: 'center' }}>양식을 불러오는 중...</Typography>
+             <Typography sx={{ p: 2, textAlign: 'center' }}>{t('common.loading')}</Typography>
            ) : questions.length === 0 ? (
              <Typography sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
-               별도의 가입 양식이 없습니다.<br/>바로 신청하시겠습니까?
+               {t('club.no_form_msg')}
              </Typography>
            ) : (
              <Stack spacing={3} sx={{ mt: 1 }}>
                {questions.map((q, idx) => {
-                 // 질문 텍스트
-                 const questionText = q.label || q.question || `질문 ${idx + 1}`;
+                 // 질문 표시 우선순위: label -> question -> content -> 기본
+                 const questionText = q.label || q.question || q.content || `Question ${idx + 1}`;
                  const answerKey = q.id || idx;
 
                  return (
@@ -428,37 +428,35 @@ export default function ClubDetail() {
                        Q{idx + 1}. {questionText}
                      </Typography>
                      
-                     {/* [핵심 수정] 타입별 입력 UI 분기 처리 */}
+                     {/* 질문 타입에 따른 입력 필드 */}
                      {q.type === 'textarea' ? (
-                       // 1. 장문형
                        <TextField
                          fullWidth
                          multiline
                          rows={3}
                          variant="outlined"
-                         placeholder="답변을 입력해주세요"
+                         placeholder={t('club.placeholder_answer')}
                          value={answers[answerKey] || ''}
-                         onChange={(e) => setAnswers({...answers, [answerKey]: e.target.value})}
+                         onChange={(e) => setAnswers(prev => ({...prev, [answerKey]: e.target.value}))}
                        />
                      ) : q.type === 'checkbox' ? (
-                       // 2. 체크박스
                        <FormControlLabel
                          control={
                            <Checkbox
-                             checked={answers[answerKey] === '예'}
-                             onChange={(e) => setAnswers({...answers, [answerKey]: e.target.checked ? '예' : '아니오'})}
+                             checked={answers[answerKey] === 'Yes'}
+                             onChange={(e) => setAnswers(prev => ({...prev, [answerKey]: e.target.checked ? 'Yes' : 'No'}))}
                            />
                          }
-                         label="네 (Yes)"
+                         label={t('common.yes')}
                        />
                      ) : (
-                       // 3. 단답형 (기본)
+                       // 기본: text
                        <TextField
                          fullWidth
                          variant="outlined"
-                         placeholder="답변을 입력해주세요"
+                         placeholder={t('club.placeholder_answer')}
                          value={answers[answerKey] || ''}
-                         onChange={(e) => setAnswers({...answers, [answerKey]: e.target.value})}
+                         onChange={(e) => setAnswers(prev => ({...prev, [answerKey]: e.target.value}))}
                        />
                      )}
                    </Box>
@@ -468,9 +466,9 @@ export default function ClubDetail() {
            )}
          </DialogContent>
          <DialogActions sx={{ p: 2 }}>
-           <Button onClick={() => setOpenJoinDialog(false)} color="inherit">취소</Button>
+           <Button onClick={() => setOpenJoinDialog(false)} color="inherit">{t('common.cancel')}</Button>
            <Button onClick={handleSubmitApplication} variant="contained" disableElevation>
-             제출하기
+             {t('club.submit')}
            </Button>
          </DialogActions>
        </Dialog>

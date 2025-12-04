@@ -8,8 +8,10 @@ import {
   Paper, InputBase, Container, Fade, Avatar, Stack
 } from '@mui/material'
 import { Add, Delete, Search, ArrowForward, Groups, Explore } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function Home({ session }) {
+  const { t } = useTranslation() // [추가]
   const [myClubs, setMyClubs] = useState([])
   const [searchQuery, setSearchQuery] = useState('') 
   const [open, setOpen] = useState(false)
@@ -34,9 +36,9 @@ export default function Home({ session }) {
 
   const handleDeleteClub = async (e, clubId, clubName) => {
     e.stopPropagation() 
-    if (!confirm(`'${clubName}'을(를) 정말 삭제하시겠습니까?`)) return
+    if (!confirm(t('common.confirm_delete'))) return // [수정]
     const { error } = await supabase.from('clubs').delete().eq('id', clubId)
-    if (error) alert('실패: ' + error.message); else { alert('삭제되었습니다.'); fetchClubs() }
+    if (error) alert('Error: ' + error.message); else { fetchClubs() }
   }
 
   const handleSearchSubmit = (e) => {
@@ -46,10 +48,10 @@ export default function Home({ session }) {
   }
 
   const getRoleBadge = (status, role) => {
-    if (status === 'pending') return { label: '승인 대기', color: '#f59e0b', bg: '#fffbeb' } 
-    if (role === 'manager') return { label: '👑 관리자', color: '#dc2626', bg: '#fef2f2' } 
-    if (role === 'staff') return { label: '🛡 운영진', color: '#2563eb', bg: '#eff6ff' } 
-    return { label: '멤버', color: '#059669', bg: '#ecfdf5' } 
+    if (status === 'pending') return { label: t('home.status_pending'), color: '#f59e0b', bg: '#fffbeb' } // [수정]
+    if (role === 'manager') return { label: t('home.role_manager'), color: '#dc2626', bg: '#fef2f2' } // [수정]
+    if (role === 'staff') return { label: t('home.role_staff'), color: '#2563eb', bg: '#eff6ff' } // [수정]
+    return { label: t('home.role_member'), color: '#059669', bg: '#ecfdf5' } // [수정]
   }
 
   const stringToColor = (string) => {
@@ -77,11 +79,11 @@ export default function Home({ session }) {
         <Box sx={{ position: 'absolute', bottom: -50, right: -50, width: 200, height: 200, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.1)', filter: 'blur(40px)' }} />
 
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
-          <Typography variant="h3" fontWeight="900" sx={{ mb: 2, textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-            <br/>흩어진 동아리 업무, 이젠 한 곳에서 <br/><br/>
+          <Typography variant="h3" fontWeight="900" sx={{ mb: 2, textShadow: '0 4px 12px rgba(0,0,0,0.3)', whiteSpace: 'pre-line' }}>
+             <br/>{t('home.hero_title')}<br/><br/> {/* [수정] */}
           </Typography>
-          <Typography variant="h6" sx={{ mb: 6, opacity: 0.9, fontWeight: 300, fontSize: { xs: '1rem', md: '1.25rem' } }}>
-            대학 생활의 모든 즐거움이 시작되는 곳,<br/>Cluby에서 당신의 동아리를 찾아보세요.
+          <Typography variant="h6" sx={{ mb: 6, opacity: 0.9, fontWeight: 300, fontSize: { xs: '1rem', md: '1.25rem' }, whiteSpace: 'pre-line' }}>
+            {t('home.hero_desc')} {/* [수정] */}
           </Typography>
 
           <Paper
@@ -100,7 +102,7 @@ export default function Home({ session }) {
             </Box>
             <InputBase 
               sx={{ ml: 2, flex: 1, fontSize: '1.1rem' }} 
-              placeholder="관심 있는 분야나 동아리를 검색해보세요" 
+              placeholder={t('home.search_placeholder')} // [수정]
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
             />
@@ -114,7 +116,7 @@ export default function Home({ session }) {
                 boxShadow: 'none'
               }}
             >
-              검색
+              {t('common.search')} {/* [수정] */}
             </Button>
           </Paper>
 
@@ -127,7 +129,7 @@ export default function Home({ session }) {
               borderRadius: 2, px: 2, py: 1
             }}
           >
-            아직 동아리가 없나요? 새로운 동아리 만들기
+            {t('home.create_club_btn')} {/* [수정] */}
           </Button>
         </Container>
       </Box>
@@ -136,7 +138,7 @@ export default function Home({ session }) {
       <Container maxWidth="lg" sx={{ mb: 10 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, borderBottom: '2px solid #f1f5f9', pb: 2 }}>
           <Typography variant="h5" fontWeight="800" color="#1e293b">
-            내 활동 동아리
+            {t('home.my_clubs')} {/* [수정] */}
           </Typography>
           <Chip 
             label={myClubs.length} 
@@ -146,7 +148,6 @@ export default function Home({ session }) {
         </Box>
         
         {myClubs.length === 0 ? (
-          // [수정됨] 동아리가 없을 때 표시 화면
           <Paper 
             elevation={0}
             sx={{ 
@@ -156,9 +157,9 @@ export default function Home({ session }) {
             }}
           >
             <Groups sx={{ fontSize: 60, color: '#cbd5e1', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" fontWeight="bold">아직 가입한 동아리가 없습니다.</Typography>
+            <Typography variant="h6" color="text.secondary" fontWeight="bold">{t('home.no_clubs_title')}</Typography> {/* [수정] */}
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 4 }}>
-              다양한 동아리들이 당신을 기다리고 있어요!
+              {t('home.no_clubs_desc')} {/* [수정] */}
             </Typography>
             <Button 
               variant="contained" 
@@ -171,7 +172,7 @@ export default function Home({ session }) {
                 '&:hover': { bgcolor: '#4338ca' }
               }}
             >
-              동아리 탐색하러 가기
+              {t('home.go_explore')} {/* [수정] */}
             </Button>
           </Paper>
         ) : (
@@ -240,7 +241,7 @@ export default function Home({ session }) {
                           endIcon={item.status === 'approved' && <ArrowForward />}
                           sx={{ py: 1.2, borderRadius: 2, boxShadow: 'none', fontWeight: 'bold', textTransform: 'none' }}
                         >
-                          {item.status === 'approved' ? '동아리 입장' : '승인 대기 중'}
+                          {item.status === 'approved' ? t('home.enter_club') : t('home.status_pending')} {/* [수정] */}
                         </Button>
                       </CardActions>
                     </Card>
@@ -249,7 +250,7 @@ export default function Home({ session }) {
               })}
             </Box>
 
-            {/* [추가됨] 동아리가 있을 때 하단 탐색 유도 섹션 */}
+            {/* 동아리가 있을 때 하단 탐색 유도 섹션 */}
             <Paper 
               elevation={0} 
               sx={{ 
@@ -260,10 +261,10 @@ export default function Home({ session }) {
             >
               <Box>
                 <Typography variant="h6" fontWeight="bold" color="#1e3a8a" gutterBottom>
-                  더 많은 동아리가 궁금한가요?
+                  {t('home.explore_more_title')} {/* [수정] */}
                 </Typography>
                 <Typography variant="body2" color="#64748b">
-                  새로운 관심사를 가진 사람들과 만나보세요. 다양한 동아리들이 기다리고 있습니다.
+                  {t('home.explore_more_desc')} {/* [수정] */}
                 </Typography>
               </Box>
               <Button 
@@ -276,7 +277,7 @@ export default function Home({ session }) {
                   '&:hover': { bgcolor: '#f8fafc' }
                 }}
               >
-                전체 동아리 둘러보기
+                {t('home.view_all')} {/* [수정] */}
               </Button>
             </Paper>
           </>
@@ -295,24 +296,24 @@ export default function Home({ session }) {
               <Add fontSize="large" />
             </Box>
           </Box>
-          동아리 생성
+          {t('home.create_modal_title')} {/* [수정] */}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            새로운 커뮤니티를 시작해보세요!<br/>멋진 동아리 이름을 지어주세요.
+            {t('home.create_modal_desc')} {/* [수정] */}
           </Typography>
           <TextField 
             autoFocus 
             fullWidth 
-            placeholder="예: 코딩 스터디, 맛집 탐방대"
+            placeholder={t('home.input_club_name')} // [수정]
             value={newClubName} 
             onChange={e => setNewClubName(e.target.value)} 
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'stretch', gap: 1 }}>
-          <Button onClick={() => setOpen(false)} size="large" fullWidth sx={{ color: 'text.secondary', borderRadius: 2, bgcolor: '#f1f5f9' }}>취소</Button>
-          <Button onClick={createClub} variant="contained" size="large" fullWidth sx={{ borderRadius: 2, boxShadow: 'none' }}>생성하기</Button>
+          <Button onClick={() => setOpen(false)} size="large" fullWidth sx={{ color: 'text.secondary', borderRadius: 2, bgcolor: '#f1f5f9' }}>{t('common.cancel')}</Button> {/* [수정] */}
+          <Button onClick={createClub} variant="contained" size="large" fullWidth sx={{ borderRadius: 2, boxShadow: 'none' }}>{t('common.create')}</Button> {/* [수정] */}
         </DialogActions>
       </Dialog>
     </Layout>

@@ -5,8 +5,10 @@ import {
   IconButton, Select, MenuItem, FormControl, InputLabel, Card
 } from '@mui/material'
 import { Save, CloudUpload, Image, Add, Delete, Assignment } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function ClubSettingsTab({ clubId }) {
+  const { t } = useTranslation() // [추가]
   const [name, setName] = useState('')
   const [shortIntro, setShortIntro] = useState('')
   const [iconUrl, setIconUrl] = useState('')
@@ -35,7 +37,7 @@ export default function ClubSettingsTab({ clubId }) {
 
   // --- 기본 정보 핸들러 ---
   const handleSave = async () => {
-    if (!name.trim()) return alert('동아리 이름을 입력해주세요.')
+    if (!name.trim()) return alert(t('club.settings.alert_input_name')) // [수정]
     
     const { error } = await supabase.from('clubs').update({
       name,
@@ -43,9 +45,9 @@ export default function ClubSettingsTab({ clubId }) {
       icon_url: iconUrl
     }).eq('id', clubId)
 
-    if (error) alert('저장 실패: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else {
-      alert('동아리 정보가 수정되었습니다.')
+      alert(t('club.settings.msg_saved')) // [수정]
       window.location.reload()
     }
   }
@@ -59,14 +61,13 @@ export default function ClubSettingsTab({ clubId }) {
       const { data } = supabase.storage.from('club_files').getPublicUrl(filePath)
       setIconUrl(data.publicUrl)
     } catch (err) {
-      alert('이미지 업로드 실패')
+      alert('Error')
     }
     setUploading(false)
   }
 
   // --- 신청서 양식 핸들러 ---
   const addQuestion = () => {
-    // [수정] label -> question으로 키 이름 변경 (가입 화면에서 인식이 잘 되도록)
     setFormQuestions([...formQuestions, { id: Date.now(), question: '', type: 'text', required: true }])
   }
 
@@ -78,15 +79,14 @@ export default function ClubSettingsTab({ clubId }) {
     setFormQuestions(formQuestions.map(q => q.id === id ? { ...q, [field]: value } : q))
   }
 
-  // [수정] UPSERT에 onConflict 옵션 추가 (409 에러 해결)
   const handleSaveForm = async () => {
     const { error } = await supabase.from('club_application_forms').upsert({ 
       club_id: clubId, 
       form_structure: formQuestions 
     }, { onConflict: 'club_id' }) 
     
-    if (error) alert('양식 저장 실패: ' + error.message)
-    else alert('가입 신청서 양식이 저장되었습니다.')
+    if (error) alert('Error: ' + error.message)
+    else alert(t('club.settings.msg_form_saved')) // [수정]
   }
 
   return (
@@ -94,9 +94,9 @@ export default function ClubSettingsTab({ clubId }) {
       
       {/* 1. 기본 정보 설정 */}
       <Paper sx={{ p: 4, borderRadius: 3, mb: 4 }}>
-        <Typography variant="h6" fontWeight="bold" gutterBottom>기본 정보 설정</Typography>
+        <Typography variant="h6" fontWeight="bold" gutterBottom>{t('club.settings.basic_info_title')}</Typography> {/* [수정] */}
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          홈 화면과 검색 결과에 노출되는 정보를 수정합니다.
+          {t('club.settings.basic_info_desc')} {/* [수정] */}
         </Typography>
 
         <Stack spacing={3}>
@@ -106,25 +106,25 @@ export default function ClubSettingsTab({ clubId }) {
             </Avatar>
             <Box>
               <Button component="label" variant="outlined" startIcon={<CloudUpload />} disabled={uploading}>
-                아이콘 변경
+                {t('club.settings.change_icon')} {/* [수정] */}
                 <input type="file" hidden accept="image/*" onChange={handleIconUpload} />
               </Button>
               <Typography variant="caption" display="block" sx={{ mt: 1, color: '#888' }}>
-                권장 사이즈: 200x200px (정사각형)
+                {t('club.settings.icon_guide')} {/* [수정] */}
               </Typography>
             </Box>
           </Box>
 
           <TextField 
-            label="동아리 이름" fullWidth value={name} onChange={e => setName(e.target.value)} 
+            label={t('club.settings.label_club_name')} fullWidth value={name} onChange={e => setName(e.target.value)} // [수정]
           />
           <TextField 
-            label="한 줄 소개" fullWidth multiline rows={2} value={shortIntro} onChange={e => setShortIntro(e.target.value)} 
-            placeholder="예: 열정 가득한 밴드부입니다!" helperText="검색 결과에 노출됩니다."
+            label={t('club.settings.label_short_intro')} fullWidth multiline rows={2} value={shortIntro} onChange={e => setShortIntro(e.target.value)} // [수정]
+            placeholder={t('club.settings.placeholder_short_intro')} helperText={t('club.settings.helper_short_intro')} // [수정]
           />
 
           <Button variant="contained" size="large"  onClick={handleSave}>
-            기본 정보 저장
+            {t('club.settings.btn_save_basic')} {/* [수정] */}
           </Button>
         </Stack>
       </Paper>
@@ -134,19 +134,19 @@ export default function ClubSettingsTab({ clubId }) {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Assignment color="primary" /> 가입 신청서 양식
+              <Assignment color="primary" /> {t('club.settings.form_title')} {/* [수정] */}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              신규 회원이 가입할 때 작성할 질문들을 설정하세요.
+              {t('club.settings.form_desc')} {/* [수정] */}
             </Typography>
           </Box>
-          <Button variant="outlined" startIcon={<Add />} onClick={addQuestion}>질문 추가</Button>
+          <Button variant="outlined" startIcon={<Add />} onClick={addQuestion}>{t('club.settings.add_question')}</Button> {/* [수정] */}
         </Box>
 
         <Stack spacing={2}>
           {formQuestions.length === 0 && (
             <Typography align="center" color="text.secondary" sx={{ py: 4, bgcolor: 'white', borderRadius: 2, border: '1px dashed #ccc' }}>
-              질문이 없습니다. [질문 추가] 버튼을 눌러보세요.<br/>(예: 학번, 전화번호, 지원동기 등)
+              {t('club.settings.no_questions')} {/* [수정] */}
             </Typography>
           )}
 
@@ -155,20 +155,19 @@ export default function ClubSettingsTab({ clubId }) {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
                 <Typography sx={{ pt: 2, fontWeight: 'bold', color: '#999' }}>Q{index + 1}</Typography>
                 
-                {/* [수정] q.label -> q.question으로 변경 */}
                 <TextField 
-                  label="질문 내용 (예: 학번을 입력해주세요)" 
+                  label={t('club.settings.label_question')} 
                   fullWidth size="small"
                   value={q.question} 
                   onChange={e => updateQuestion(q.id, 'question', e.target.value)} 
                 />
                 
                 <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <InputLabel>답변 타입</InputLabel>
-                  <Select value={q.type} label="답변 타입" onChange={e => updateQuestion(q.id, 'type', e.target.value)}>
-                    <MenuItem value="text">단답형 (Text)</MenuItem>
-                    <MenuItem value="textarea">장문형 (Box)</MenuItem>
-                    <MenuItem value="checkbox">체크박스 (Yes/No)</MenuItem>
+                  <InputLabel>{t('club.settings.label_type')}</InputLabel> {/* [수정] */}
+                  <Select value={q.type} label={t('club.settings.label_type')} onChange={e => updateQuestion(q.id, 'type', e.target.value)}>
+                    <MenuItem value="text">{t('club.settings.type_text')}</MenuItem> {/* [수정] */}
+                    <MenuItem value="textarea">{t('club.settings.type_textarea')}</MenuItem> {/* [수정] */}
+                    <MenuItem value="checkbox">{t('club.settings.type_checkbox')}</MenuItem> {/* [수정] */}
                   </Select>
                 </FormControl>
 
@@ -182,7 +181,7 @@ export default function ClubSettingsTab({ clubId }) {
           <Divider sx={{ my: 2 }} />
           
           <Button variant="contained" color="primary" size="large"  onClick={handleSaveForm} disabled={formQuestions.length === 0}>
-            신청서 양식 저장
+            {t('club.settings.btn_save_form')} {/* [수정] */}
           </Button>
         </Stack>
       </Paper>

@@ -12,8 +12,9 @@ import {
   CloudUpload, CreateNewFolder, Folder, FolderOpen, Delete,
   Image as ImageIcon, ExpandLess, ExpandMore, AddCircleOutline,
   NavigateNext, Person, GridView, ViewList, Sort, Download,
-  DriveFileRenameOutline // [NEW] 수정 아이콘
+  DriveFileRenameOutline
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 
 // --- [컴포넌트] 재귀형 폴더 트리 아이템 ---
 const FolderTreeItem = ({ node, selectedFolderId, onSelect, onToggle, expandedIds, onAddSub, onRename, canManage }) => {
@@ -29,7 +30,7 @@ const FolderTreeItem = ({ node, selectedFolderId, onSelect, onToggle, expandedId
           borderLeft: isSelected ? '4px solid #4F46E5' : '4px solid transparent',
           bgcolor: isSelected ? 'rgba(79, 70, 229, 0.08) !important' : 'inherit',
           '&:hover': { bgcolor: '#f1f5f9' },
-          '&:hover .action-btn': { opacity: 1 } // 호버 시 버튼들 표시
+          '&:hover .action-btn': { opacity: 1 } 
         }}
         onClick={() => onSelect(node)}
       >
@@ -54,7 +55,6 @@ const FolderTreeItem = ({ node, selectedFolderId, onSelect, onToggle, expandedId
           }} 
         />
 
-        {/* 액션 버튼 그룹 (추가/수정) */}
         {canManage && (
           <Stack direction="row" spacing={0} className="action-btn" sx={{ opacity: 0, transition: 'opacity 0.2s' }}>
              <Tooltip title="이름 변경">
@@ -95,33 +95,29 @@ const FolderTreeItem = ({ node, selectedFolderId, onSelect, onToggle, expandedId
 }
 
 export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMembers }) {
-  // --- State ---
+  const { t } = useTranslation()
   const [flatFolders, setFlatFolders] = useState([]) 
   const [photos, setPhotos] = useState([])
   const [selectedFolder, setSelectedFolder] = useState(null)
   const [expandedIds, setExpandedIds] = useState([]) 
 
-  // UI View State
   const [viewMode, setViewMode] = useState('grid')
   const [sortOrder, setSortOrder] = useState('date_desc')
   const [anchorElSort, setAnchorElSort] = useState(null)
 
-  // 페이지네이션
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const ITEMS_PER_PAGE = 12
 
-  // 모달 State
   const [openCreate, setOpenCreate] = useState(false)
-  const [openRename, setOpenRename] = useState(false) // [NEW] 이름 변경 모달
+  const [openRename, setOpenRename] = useState(false) 
   const [targetParentId, setTargetParentId] = useState(null) 
-  const [targetRenameFolder, setTargetRenameFolder] = useState(null) // [NEW] 이름 변경 대상 폴더
-  const [folderNameInput, setFolderNameInput] = useState('') // [NEW] 입력값 공용
+  const [targetRenameFolder, setTargetRenameFolder] = useState(null) 
+  const [folderNameInput, setFolderNameInput] = useState('') 
 
   const [uploading, setUploading] = useState(false)
   const [loadingPhotos, setLoadingPhotos] = useState(false)
 
-  // --- 권한 체크 ---
   const isAdmin = myRole === 'manager' || myRole === 'staff'
   const isGroupLeader = groupMembers?.some(m => m.user_id === currentUserId && m.role === 'leader')
   const canManageFolder = isAdmin || isGroupLeader
@@ -134,63 +130,59 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
     else setPhotos([])
   }, [selectedFolder, page, sortOrder])
 
-  // --- 데이터 조회 ---
   const fetchFolders = async () => {
     const { data, error } = await supabase.from('photo_folders').select('*').eq('club_id', clubId).order('name', { ascending: true })
     if (error) console.error(error)
     else setFlatFolders(data || [])
   }
-  // ... fetchPhotos 동일 ...
+
   const fetchPhotos = async (folderId, pageNum) => {
     setLoadingPhotos(true)
     const from = (pageNum - 1) * ITEMS_PER_PAGE
     const to = from + ITEMS_PER_PAGE - 1
     let query = supabase.from('photos').select(`id, file_name, file_url, created_at, uploader_id, profiles ( username )`, { count: 'exact' }).eq('club_id', clubId).eq('folder_id', folderId)
+    
     if (sortOrder === 'date_desc') query = query.order('created_at', { ascending: false })
     else if (sortOrder === 'date_asc') query = query.order('created_at', { ascending: true })
     else if (sortOrder === 'name_asc') query = query.order('file_name', { ascending: true })
+    
     const { data, count, error } = await query.range(from, to)
     if (error) { setPhotos([]) } else { setPhotos(data || []); setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE)) }
     setLoadingPhotos(false)
   }
 
-  // --- 트리 & Breadcrumbs 동일 ---
   const folderTree = useMemo(() => {
     const buildTree = (items, parentId = null, depth = 0) => items.filter(item => item.parent_id === parentId).map(item => ({ ...item, depth, children: buildTree(items, item.id, depth + 1) }))
     return buildTree(flatFolders)
   }, [flatFolders])
+  
   const breadcrumbs = useMemo(() => {
     if (!selectedFolder) return []; const path = []; let current = selectedFolder; while (current) { path.unshift(current); current = flatFolders.find(f => f.id === current.parent_id) } return path
   }, [selectedFolder, flatFolders])
 
-  // --- 핸들러 ---
   const handleToggleFolder = (folderId) => setExpandedIds(prev => prev.includes(folderId) ? prev.filter(id => id !== folderId) : [...prev, folderId])
   const handleSelectFolder = (folder) => { if (selectedFolder?.id !== folder.id) { setSelectedFolder(folder); setPage(1); if (!expandedIds.includes(folder.id)) setExpandedIds(prev => [...prev, folder.id]) } }
   
-  // [생성]
   const handleOpenCreate = (parentId = null) => { setTargetParentId(parentId); setFolderNameInput(''); setOpenCreate(true) }
   const handleCreateFolder = async () => {
-    if (!folderNameInput.trim()) return alert('폴더명을 입력해주세요.')
+    if (!folderNameInput.trim()) return alert(t('photo.alert_input_name'))
     const { error } = await supabase.from('photo_folders').insert([{ club_id: clubId, name: folderNameInput, parent_id: targetParentId, creator_id: currentUserId }])
-    if (error) alert('실패'); else { setOpenCreate(false); fetchFolders(); if (targetParentId) setExpandedIds(prev => [...prev, targetParentId]) }
+    if (error) alert('Error: ' + error.message); else { setOpenCreate(false); fetchFolders(); if (targetParentId) setExpandedIds(prev => [...prev, targetParentId]) }
   }
 
-  // [수정 - NEW]
   const handleOpenRename = (folder) => { setTargetRenameFolder(folder); setFolderNameInput(folder.name); setOpenRename(true) }
   const handleRenameFolder = async () => {
-    if (!folderNameInput.trim()) return alert('폴더명을 입력해주세요.')
+    if (!folderNameInput.trim()) return alert(t('photo.alert_input_name'))
     const { error } = await supabase.from('photo_folders').update({ name: folderNameInput }).eq('id', targetRenameFolder.id)
-    if (error) alert('수정 실패'); else { setOpenRename(false); fetchFolders(); }
+    if (error) alert('Error: ' + error.message); else { setOpenRename(false); fetchFolders(); }
   }
 
-  // [삭제]
   const handleDeleteFolder = async () => {
-    if (!selectedFolder) return; if (!confirm('폴더와 내부 사진이 모두 삭제됩니다. 삭제하시겠습니까?')) return
+    if (!selectedFolder) return; if (!confirm(t('photo.confirm_delete_folder'))) return
     const { error } = await supabase.from('photo_folders').delete().eq('id', selectedFolder.id)
-    if (error) alert('삭제 실패'); else { setSelectedFolder(null); fetchFolders() }
+    if (error) alert('Error: ' + error.message); else { setSelectedFolder(null); fetchFolders() }
   }
 
-  // ... handleUpload, handleDeletePhoto 동일 ...
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files); if (files.length === 0 || !selectedFolder) return; setUploading(true)
     try { await Promise.all(files.map(async (file) => {
@@ -199,34 +191,38 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
         const { data } = supabase.storage.from('club_files').getPublicUrl(filePath)
         await supabase.from('photos').insert([{ club_id: clubId, uploader_id: currentUserId, folder_id: selectedFolder.id, file_name: file.name, file_url: data.publicUrl }])
       })); fetchPhotos(selectedFolder.id, page)
-    } catch (err) { alert('업로드 실패') } finally { setUploading(false) }
+    } catch (err) { alert('Error') } finally { setUploading(false) }
   }
-  const handleDeletePhoto = async (photoId) => { if (confirm('사진을 삭제하시겠습니까?')) { await supabase.from('photos').delete().eq('id', photoId); fetchPhotos(selectedFolder.id, page) } }
+  const handleDeletePhoto = async (photoId) => { if (confirm(t('common.confirm_delete'))) { await supabase.from('photos').delete().eq('id', photoId); fetchPhotos(selectedFolder.id, page) } }
   const handleSortClick = (e) => setAnchorElSort(e.currentTarget); const handleSortClose = (o) => { if (o) setSortOrder(o); setAnchorElSort(null) }
-  const getSortLabel = () => sortOrder === 'date_desc' ? '최신순' : sortOrder === 'date_asc' ? '오래된순' : '이름순'
+  
+  const getSortLabel = () => {
+    if (sortOrder === 'date_desc') return t('archive.sort_latest')
+    if (sortOrder === 'date_asc') return t('archive.sort_oldest')
+    if (sortOrder === 'name_asc') return t('archive.sort_name_asc')
+    return t('archive.sort_name_desc')
+  }
 
   return (
     <Box sx={{ height: '75vh', display: 'flex', gap: 2 }}>
       
-      {/* [LEFT] */}
       <Paper elevation={0} variant="outlined" sx={{ width: 280, display: 'flex', flexDirection: 'column', bgcolor: '#F8FAFC', borderRadius: 2 }}>
         <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', display:'flex', justifyContent:'space-between', alignItems:'center', bgcolor: 'white', borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
-          <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">ALBUM EXPLORER</Typography>
-          {canManageFolder && ( <Tooltip title="새 앨범 만들기"><IconButton size="small" onClick={() => handleOpenCreate(null)} color="primary"><CreateNewFolder fontSize="small" /></IconButton></Tooltip> )}
+          <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">{t('photo.explorer_title')}</Typography>
+          {canManageFolder && ( <Tooltip title={t('photo.new_album')}><IconButton size="small" onClick={() => handleOpenCreate(null)} color="primary"><CreateNewFolder fontSize="small" /></IconButton></Tooltip> )}
         </Box>
         <List sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
           {folderTree.map(node => (
             <FolderTreeItem 
               key={node.id} node={node} selectedFolderId={selectedFolder?.id} 
               onSelect={handleSelectFolder} onToggle={handleToggleFolder} expandedIds={expandedIds} 
-              onAddSub={handleOpenCreate} onRename={handleOpenRename} canManage={canManageFolder} // [NEW] onRename 전달
+              onAddSub={handleOpenCreate} onRename={handleOpenRename} canManage={canManageFolder} 
             />
           ))}
-          {flatFolders.length === 0 && <Typography variant="caption" sx={{ p: 2, display:'block', textAlign:'center', color:'text.secondary' }}>생성된 앨범이 없습니다.</Typography>}
+          {flatFolders.length === 0 && <Typography variant="caption" sx={{ p: 2, display:'block', textAlign:'center', color:'text.secondary' }}>{t('photo.no_albums')}</Typography>}
         </List>
       </Paper>
 
-      {/* [RIGHT] 동일 */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Paper elevation={0} variant="outlined" sx={{ p: 1.5, mb: 2, borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {selectedFolder ? (
@@ -237,7 +233,7 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
                 </Link>
               ))}
             </Breadcrumbs>
-          ) : ( <Typography variant="body2" color="text.secondary" sx={{ display:'flex', alignItems:'center' }}><ImageIcon sx={{ mr: 1, fontSize: 18 }}/> 앨범을 선택해주세요</Typography> )}
+          ) : ( <Typography variant="body2" color="text.secondary" sx={{ display:'flex', alignItems:'center' }}><ImageIcon sx={{ mr: 1, fontSize: 18 }}/> {t('photo.select_album')}</Typography> )}
           <Stack direction="row" spacing={1} alignItems="center">
             {selectedFolder && (
               <>
@@ -246,8 +242,12 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
                   <ToggleButton value="list"><ViewList fontSize="small" /></ToggleButton>
                 </ToggleButtonGroup>
                 <Button startIcon={<Sort />} variant="outlined" size="small" onClick={handleSortClick} sx={{ height: 32 }}>{getSortLabel()}</Button>
-                <Menu anchorEl={anchorElSort} open={Boolean(anchorElSort)} onClose={() => handleSortClose(null)}><MenuItem onClick={() => handleSortClose('date_desc')}>최신순</MenuItem><MenuItem onClick={() => handleSortClose('date_asc')}>오래된순</MenuItem><MenuItem onClick={() => handleSortClose('name_asc')}>이름순</MenuItem></Menu>
-                {canUpload && ( <Button component="label" variant="contained" size="small" startIcon={uploading ? <CircularProgress size={16} color="inherit"/> : <CloudUpload />} disabled={uploading} sx={{ height: 32 }}>사진 업로드<input type="file" hidden multiple accept="image/*" onChange={handleUpload} /></Button> )}
+                <Menu anchorEl={anchorElSort} open={Boolean(anchorElSort)} onClose={() => handleSortClose(null)}>
+                  <MenuItem onClick={() => handleSortClose('date_desc')}>{t('archive.sort_latest')}</MenuItem>
+                  <MenuItem onClick={() => handleSortClose('date_asc')}>{t('archive.sort_oldest')}</MenuItem>
+                  <MenuItem onClick={() => handleSortClose('name_asc')}>{t('archive.sort_name_asc')}</MenuItem>
+                </Menu>
+                {canUpload && ( <Button component="label" variant="contained" size="small" startIcon={uploading ? <CircularProgress size={16} color="inherit"/> : <CloudUpload />} disabled={uploading} sx={{ height: 32 }}>{t('common.upload')}<input type="file" hidden multiple accept="image/*" onChange={handleUpload} /></Button> )}
                 {canManageFolder && ( <IconButton size="small" color="error" onClick={handleDeleteFolder} sx={{ border: '1px solid #ffcdd2', borderRadius: 1 }}><Delete fontSize="small" /></IconButton> )}
               </>
             )}
@@ -255,9 +255,9 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
         </Paper>
         <Paper elevation={0} variant="outlined" sx={{ flex: 1, overflowY: 'auto', p: 0, bgcolor: 'white', borderRadius: 2 }}>
           {!selectedFolder ? (
-            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><ImageIcon sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} /><Typography>좌측 목록에서 앨범을 선택하세요</Typography></Box>
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><ImageIcon sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} /><Typography>{t('photo.select_album_guide')}</Typography></Box>
           ) : loadingPhotos ? ( <Box sx={{ display:'flex', justifyContent:'center', mt: 10 }}><CircularProgress /></Box>
-          ) : photos.length === 0 ? ( <Box sx={{ textAlign: 'center', mt: 10, color: 'text.secondary' }}><Typography>사진이 없습니다.</Typography></Box>
+          ) : photos.length === 0 ? ( <Box sx={{ textAlign: 'center', mt: 10, color: 'text.secondary' }}><Typography>{t('photo.no_photos')}</Typography></Box>
           ) : (
             <>
               {viewMode === 'grid' ? (
@@ -268,7 +268,7 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
                         <Card variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', '&:hover': { borderColor: '#94a3b8', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' } }}>
                           <Box sx={{ height: 160, bgcolor: '#f8fafc', cursor: 'pointer', display:'flex', alignItems:'center', justifyContent:'center' }} onClick={() => window.open(photo.file_url, '_blank')}><img src={photo.file_url} alt={photo.file_name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></Box>
                           <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ maxWidth: '80%' }}><Person sx={{ fontSize: 16, color: '#94a3b8' }} /><Typography variant="caption" noWrap color="text.secondary" fontWeight="bold">{photo.profiles?.username || '알 수 없음'}</Typography></Stack>
+                            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ maxWidth: '80%' }}><Person sx={{ fontSize: 16, color: '#94a3b8' }} /><Typography variant="caption" noWrap color="text.secondary" fontWeight="bold">{photo.profiles?.username || t('chat.unknown_user')}</Typography></Stack>
                             {(isAdmin || photo.uploader_id === currentUserId) && ( <IconButton size="small" onClick={() => handleDeletePhoto(photo.id)} sx={{ p:0.5, color:'#ef5350' }}><Delete fontSize="inherit" /></IconButton> )}
                           </Box>
                         </Card>
@@ -279,7 +279,7 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
               ) : (
                 <TableContainer>
                   <Table size="medium">
-                    <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow><TableCell width={60} align="center">미리보기</TableCell><TableCell>파일명</TableCell><TableCell width={120} align="center">게시자</TableCell><TableCell width={120} align="center">날짜</TableCell><TableCell width={80} align="right">관리</TableCell></TableRow></TableHead>
+                    <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow><TableCell width={60} align="center">{t('archive.col_manage')}</TableCell><TableCell>{t('archive.col_name')}</TableCell><TableCell width={120} align="center">{t('archive.col_uploader')}</TableCell><TableCell width={120} align="center">{t('archive.col_date')}</TableCell><TableCell width={80} align="right">{t('archive.col_manage')}</TableCell></TableRow></TableHead>
                     <TableBody>
                       {photos.map(photo => (
                         <TableRow key={photo.id} hover>
@@ -302,16 +302,16 @@ export default function PhotoArchiveTab({ clubId, currentUserId, myRole, groupMe
 
       {/* 생성 Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{targetParentId ? '하위 앨범 만들기' : '새 앨범 만들기'}</DialogTitle>
-        <DialogContent><TextField autoFocus margin="dense" label="앨범 이름" fullWidth variant="outlined" value={folderNameInput} onChange={(e) => setFolderNameInput(e.target.value)} /></DialogContent>
-        <DialogActions sx={{ p: 2 }}><Button onClick={() => setOpenCreate(false)} color="inherit">취소</Button><Button onClick={handleCreateFolder} variant="contained" disabled={!folderNameInput.trim()}>생성</Button></DialogActions>
+        <DialogTitle sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{targetParentId ? t('photo.new_sub_album') : t('photo.new_album')}</DialogTitle>
+        <DialogContent><TextField autoFocus margin="dense" label={t('archive.input_folder_name')} fullWidth variant="outlined" value={folderNameInput} onChange={(e) => setFolderNameInput(e.target.value)} /></DialogContent>
+        <DialogActions sx={{ p: 2 }}><Button onClick={() => setOpenCreate(false)} color="inherit">{t('common.cancel')}</Button><Button onClick={handleCreateFolder} variant="contained" disabled={!folderNameInput.trim()}>{t('common.create')}</Button></DialogActions>
       </Dialog>
 
-      {/* [NEW] 수정 Dialog */}
+      {/* 수정 Dialog */}
       <Dialog open={openRename} onClose={() => setOpenRename(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>앨범 이름 변경</DialogTitle>
-        <DialogContent><TextField autoFocus margin="dense" label="새 이름" fullWidth variant="outlined" value={folderNameInput} onChange={(e) => setFolderNameInput(e.target.value)} /></DialogContent>
-        <DialogActions sx={{ p: 2 }}><Button onClick={() => setOpenRename(false)} color="inherit">취소</Button><Button onClick={handleRenameFolder} variant="contained" disabled={!folderNameInput.trim()}>저장</Button></DialogActions>
+        <DialogTitle sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{t('archive.rename_title')}</DialogTitle>
+        <DialogContent><TextField autoFocus margin="dense" label={t('archive.input_new_name')} fullWidth variant="outlined" value={folderNameInput} onChange={(e) => setFolderNameInput(e.target.value)} /></DialogContent>
+        <DialogActions sx={{ p: 2 }}><Button onClick={() => setOpenRename(false)} color="inherit">{t('common.cancel')}</Button><Button onClick={handleRenameFolder} variant="contained" disabled={!folderNameInput.trim()}>{t('common.save')}</Button></DialogActions>
       </Dialog>
     </Box>
   )

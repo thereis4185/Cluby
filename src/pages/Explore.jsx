@@ -7,8 +7,10 @@ import {
   Avatar, Chip, CircularProgress, Fade, Tooltip 
 } from '@mui/material'
 import { Search, Verified, Visibility, ArrowForward, EmojiEvents } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function Explore({ session }) {
+  const { t } = useTranslation() // [추가]
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   
@@ -64,26 +66,26 @@ export default function Explore({ session }) {
     <Layout>
       <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
         
-        {/* [수정] 상단 검색바 영역 고정 (Sticky Header) */}
+        {/* 상단 검색바 영역 고정 (Sticky Header) */}
         <Box 
           sx={{ 
-            position: 'sticky', // 스크롤 시 상단 고정
-            top: 0,             // 최상단에 위치 (Layout 헤더 높이에 따라 조절 필요할 수 있음, 예: 64px)
-            zIndex: 100,        // 다른 요소 위에 표시
-            pt: 4,              // 상단 여백
-            pb: 2,              // 하단 여백
+            position: 'sticky', 
+            top: 0, 
+            zIndex: 100, 
+            pt: 4, 
+            pb: 2, 
             mb: 2,
-            bgcolor: 'rgba(255, 255, 255, 0.9)', // 반투명 흰색 배경
-            backdropFilter: 'blur(8px)',         // 블러 효과 (리스트가 뒤로 지나갈 때 예쁘게 보이도록)
-            borderBottom: '1px solid #f1f5f9',   // 하단 구분선
+            bgcolor: 'rgba(255, 255, 255, 0.9)', 
+            backdropFilter: 'blur(8px)', 
+            borderBottom: '1px solid #f1f5f9', 
             textAlign: 'center'
           }}
         >
           <Typography variant="h4" fontWeight="900" gutterBottom sx={{ color: '#1e293b' }}>
-            동아리 탐색
+            {t('explore.title')} {/* [수정] */}
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            새로운 관심사를 찾아보세요! 키워드로 검색할 수 있습니다.
+            {t('explore.desc')} {/* [수정] */}
           </Typography>
 
           <Paper
@@ -99,7 +101,7 @@ export default function Explore({ session }) {
             <IconButton sx={{ p: '10px', ml: 1 }}><Search /></IconButton>
             <InputBase
               sx={{ ml: 1, flex: 1, fontSize: '1.1rem' }}
-              placeholder="동아리 이름, 태그 검색..."
+              placeholder={t('home.search_placeholder')} // [수정] 기존 home 리소스 재사용
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -112,7 +114,7 @@ export default function Explore({ session }) {
                 '&:hover': { bgcolor: '#3730a3' }
               }}
             >
-              검색
+              {t('common.search')} {/* [수정] */}
             </Button>
           </Paper>
         </Box>
@@ -120,7 +122,7 @@ export default function Explore({ session }) {
         {/* 하단 리스트 영역 (검색바 밑으로 스크롤됨) */}
         <Box sx={{ px: 2, pb: 10 }}>
           <Divider textAlign="left" sx={{ mb: 4 }}>
-            <Chip label={`검색 결과 ${filteredClubs.length}건`} sx={{ fontWeight: 'bold', bgcolor: '#f1f5f9' }} />
+            <Chip label={t('explore.result_count', { count: filteredClubs.length })} sx={{ fontWeight: 'bold', bgcolor: '#f1f5f9' }} /> {/* [수정] */}
           </Divider>
 
           {loading ? (
@@ -131,7 +133,7 @@ export default function Explore({ session }) {
               {filteredClubs.length === 0 && (
                 <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 10 }}>
                   <EmojiEvents sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
-                  <Typography color="text.secondary" fontSize="1.1rem">검색 결과가 없습니다.<br/>다른 키워드로 검색해보세요!</Typography>
+                  <Typography color="text.secondary" fontSize="1.1rem">{t('explore.no_result')}</Typography> {/* [수정] */}
                 </Box>
               )}
 
@@ -160,7 +162,7 @@ export default function Explore({ session }) {
                           >
                             {club.name[0]}
                           </Avatar>
-                          {club.is_official && <Tooltip title="공식 인증"><Verified color="primary" /></Tooltip>}
+                          {club.is_official && <Tooltip title={t('explore.official')}><Verified color="primary" /></Tooltip>} {/* [수정] */}
                         </Box>
 
                         <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
@@ -170,7 +172,7 @@ export default function Explore({ session }) {
                           mb: 3, minHeight: '40px', 
                           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' 
                         }}>
-                          {club.short_intro || club.intro_title || '아직 소개글이 없습니다.'}
+                          {club.short_intro || club.intro_title || t('club.home_tab.content_fallback')} {/* [수정] */}
                         </Typography>
                       </Box>
                       
@@ -184,7 +186,7 @@ export default function Explore({ session }) {
                             onClick={() => navigate(`/club/${club.id}`)}
                             sx={{ borderRadius: 3, py: 1, borderColor: '#e2e8f0' }}
                           >
-                            입장하기
+                            {t('explore.join_btn')} {/* [수정] */}
                           </Button>
                         ) : (
                           <Button 
@@ -194,7 +196,7 @@ export default function Explore({ session }) {
                             onClick={() => navigate(`/club/${club.id}`)}
                             sx={{ borderRadius: 3, py: 1, fontWeight: 'bold', boxShadow: 'none' }}
                           >
-                            둘러보기
+                            {t('explore.view_btn')} {/* [수정] */}
                           </Button>
                         )}
                       </Box>

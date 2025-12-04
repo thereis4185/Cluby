@@ -6,8 +6,10 @@ import {
   Avatar, IconButton, TextField, Chip, Container, Divider, Stack
 } from '@mui/material'
 import { Send, Public, Groups, Chat as ChatIcon } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function ChatPage({ session }) {
+  const { t } = useTranslation() // [추가]
   const currentUserId = session?.user?.id
   
   const [channels, setChannels] = useState([])
@@ -81,7 +83,7 @@ export default function ChatPage({ session }) {
       scrollToBottom()
     }
     
-    // 기존 구독 해제 후 재구독 (간소화된 로직)
+    // 기존 구독 해제 후 재구독
     supabase.removeAllChannels()
     subscribeChat(channel)
   }
@@ -137,7 +139,7 @@ export default function ChatPage({ session }) {
           <Box sx={{ width: { xs: '80px', md: '300px' }, borderRight: '1px solid #eee', bgcolor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 2.5, borderBottom: '1px solid #eee', display: { xs: 'none', md: 'block' } }}>
               <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ChatIcon color="primary" /> 내 채팅
+                <ChatIcon color="primary" /> {t('chat_page.my_chat')} {/* [수정] */}
               </Typography>
             </Box>
             
@@ -160,7 +162,7 @@ export default function ChatPage({ session }) {
                   </ListItemAvatar>
                   <ListItemText 
                     primary={ch.name} 
-                    secondary={ch.type === 'group' ? '소그룹' : '전체'}
+                    secondary={ch.type === 'group' ? t('chat_page.small_group') : t('chat_page.all')} // [수정]
                     primaryTypographyProps={{ fontWeight: 'bold', noWrap: true }}
                     secondaryTypographyProps={{ noWrap: true, fontSize: '0.75rem' }}
                     sx={{ display: { xs: 'none', md: 'block' } }}
@@ -182,18 +184,18 @@ export default function ChatPage({ session }) {
                       {activeChannel.name}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {activeChannel.type === 'group' ? `${activeChannel.clubName} > 소그룹` : activeChannel.clubName}
+                      {activeChannel.type === 'group' ? `${activeChannel.clubName} > ${t('chat_page.small_group')}` : activeChannel.clubName} {/* [수정] */}
                     </Typography>
                   </Box>
-                  <Chip label="실시간" color="success" size="small" variant="soft" />
+                  <Chip label={t('chat.badge_live')} color="success" size="small" variant="filled" /> {/* [수정] 기존 chat 리소스 재사용 */}
                 </Box>
 
                 {/* 메시지 리스트 */}
                 <Box sx={{ flex: 1, overflowY: 'auto', p: 3, bgcolor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {messages.map((msg, idx) => {
                     const isMe = msg.user_id === currentUserId
-                    const name = msg.profiles?.full_name || msg.profiles?.username || '알 수 없음'
-                    // 연속된 메시지인지 확인 (프로필 사진 생략용)
+                    const name = msg.profiles?.full_name || msg.profiles?.username || t('chat.unknown_user') // [수정]
+                    // 연속된 메시지인지 확인
                     const isSequence = idx > 0 && messages[idx - 1].user_id === msg.user_id
 
                     return (
@@ -218,14 +220,14 @@ export default function ChatPage({ session }) {
                 {/* 입력창 */}
                 <Box component="form" onSubmit={handleSend} sx={{ p: 2, borderTop: '1px solid #eee' }}>
                   <Stack direction="row" spacing={1}>
-                    <TextField fullWidth size="small" placeholder="메시지를 입력하세요..." value={newMessage} onChange={e => setNewMessage(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 5, bgcolor: '#f8fafc' } }} />
+                    <TextField fullWidth size="small" placeholder={t('chat.input_placeholder')} value={newMessage} onChange={e => setNewMessage(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 5, bgcolor: '#f8fafc' } }} /> {/* [수정] */}
                     <IconButton type="submit" color="primary" disabled={!newMessage.trim()} sx={{ bgcolor: '#eef2ff', '&:hover':{bgcolor:'#e0e7ff'} }}><Send /></IconButton>
                   </Stack>
                 </Box>
               </>
             ) : (
               <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-                <Typography>채팅방을 선택해주세요.</Typography>
+                <Typography>{t('chat_page.select_room')}</Typography> {/* [수정] */}
               </Box>
             )}
           </Box>
