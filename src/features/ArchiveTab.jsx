@@ -9,10 +9,12 @@ import {
 import { 
   CloudUpload, CreateNewFolder, Folder, Delete, 
   Image as ImageIcon, Description, GridView, ViewList, Sort,
-  Download, ArrowBack, DriveFileRenameOutline // [NEW] 수정 아이콘
+  Download, ArrowBack, DriveFileRenameOutline
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function ArchiveTab({ clubId, isAdmin }) {
+  const { t } = useTranslation() // [추가]
   const [archives, setArchives] = useState([])
   const [folders, setFolders] = useState([])
   const [currentFolderId, setCurrentFolderId] = useState(null)
@@ -24,9 +26,9 @@ export default function ArchiveTab({ clubId, isAdmin }) {
 
   // 모달 State
   const [openFolder, setOpenFolder] = useState(false)
-  const [openRename, setOpenRename] = useState(false) // [NEW] 수정 모달
-  const [folderNameInput, setFolderNameInput] = useState('') // [NEW] 이름 입력 (생성/수정 공용)
-  const [targetRenameFolder, setTargetRenameFolder] = useState(null) // [NEW] 수정 대상
+  const [openRename, setOpenRename] = useState(false) 
+  const [folderNameInput, setFolderNameInput] = useState('') 
+  const [targetRenameFolder, setTargetRenameFolder] = useState(null) 
 
   useEffect(() => { fetchContents() }, [clubId, currentFolderId])
 
@@ -42,7 +44,6 @@ export default function ArchiveTab({ clubId, isAdmin }) {
     const { data: fileData } = await fileQuery; if (fileData) setArchives(fileData)
   }
 
-  // ... (getSortedData 동일) ...
   const getSortedData = (data, type = 'file') => {
     return [...data].sort((a, b) => {
       const nameA = type === 'folder' ? a.name : a.file_name; const nameB = type === 'folder' ? b.name : b.file_name
@@ -63,20 +64,20 @@ export default function ArchiveTab({ clubId, isAdmin }) {
   const handleCreateFolder = async () => {
     if (!folderNameInput.trim()) return
     const { error } = await supabase.from('folders').insert([{ club_id: clubId, name: folderNameInput, parent_id: currentFolderId }])
-    if (error) alert('실패'); else { setOpenFolder(false); fetchContents() }
+    if (error) alert('Error'); else { setOpenFolder(false); fetchContents() }
   }
 
-  // [수정 - NEW]
+  // [수정]
   const handleOpenRename = (folder) => { setTargetRenameFolder(folder); setFolderNameInput(folder.name); setOpenRename(true) }
   const handleRenameFolder = async () => {
     if (!folderNameInput.trim()) return
     const { error } = await supabase.from('folders').update({ name: folderNameInput }).eq('id', targetRenameFolder.id)
-    if (error) alert('수정 실패'); else { setOpenRename(false); fetchContents() }
+    if (error) alert('Error'); else { setOpenRename(false); fetchContents() }
   }
 
   // ... (나머지 핸들러 동일) ...
-  const handleDeleteFolder = async (fid) => { if (!confirm('삭제?')) return; await supabase.from('folders').delete().eq('id', fid); fetchContents() }
-  const handleDeleteArchive = async (aid) => { if (!confirm('삭제?')) return; await supabase.from('archives').delete().eq('id', aid); fetchContents() }
+  const handleDeleteFolder = async (fid) => { if (!confirm(t('common.confirm_delete'))) return; await supabase.from('folders').delete().eq('id', fid); fetchContents() } // [수정]
+  const handleDeleteArchive = async (aid) => { if (!confirm(t('common.confirm_delete'))) return; await supabase.from('archives').delete().eq('id', aid); fetchContents() } // [수정]
   const handleFile = async (e) => {
     const file = e.target.files[0]; if (!file) return; setUploading(true)
     try {
@@ -93,21 +94,42 @@ export default function ArchiveTab({ clubId, isAdmin }) {
   const handleNavigateUp = (index) => { if (index === -1) { setFolderPath([]); setCurrentFolderId(null) } else { const newPath = folderPath.slice(0, index + 1); setFolderPath(newPath); setCurrentFolderId(newPath[newPath.length - 1].id) } }
   const handleGoParent = () => { handleNavigateUp(folderPath.length - 2) }
   const handleSortClick = (e) => setAnchorElSort(e.currentTarget); const handleSortClose = (o) => { if (o) setSortOrder(o); setAnchorElSort(null) }
-  const getSortLabel = () => sortOrder === 'date_desc' ? '최신순' : sortOrder === 'date_asc' ? '오래된순' : sortOrder === 'name_asc' ? '이름순' : '이름역순'
+  
+  // [수정] 정렬 라벨 다국어
+  const getSortLabel = () => {
+    if (sortOrder === 'date_desc') return t('archive.sort_latest')
+    if (sortOrder === 'date_asc') return t('archive.sort_oldest')
+    if (sortOrder === 'name_asc') return t('archive.sort_name_asc')
+    return t('archive.sort_name_desc')
+  }
 
   return (
     <Box>
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }} elevation={0} variant="outlined">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Breadcrumbs aria-label="breadcrumb">
-            <Link component="button" variant="body1" underline="hover" color="inherit" onClick={() => handleNavigateUp(-1)} sx={{ fontWeight: !currentFolderId ? 'bold' : 'normal', display:'flex', alignItems:'center' }}><Folder fontSize="small" sx={{mr:0.5, color: !currentFolderId ? 'primary.main' : 'inherit'}}/> 홈</Link>
+            <Link component="button" variant="body1" underline="hover" color="inherit" onClick={() => handleNavigateUp(-1)} sx={{ fontWeight: !currentFolderId ? 'bold' : 'normal', display:'flex', alignItems:'center' }}>
+              <Folder fontSize="small" sx={{mr:0.5, color: !currentFolderId ? 'primary.main' : 'inherit'}}/> {t('archive.home')}
+            </Link>
             {folderPath.map((folder, index) => ( <Link key={folder.id} component="button" variant="body1" underline="hover" color="inherit" onClick={() => handleNavigateUp(index)} sx={{ fontWeight: index === folderPath.length - 1 ? 'bold' : 'normal' }}>{folder.name}</Link> ))}
           </Breadcrumbs>
           <Stack direction="row" spacing={1} alignItems="center">
              <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => { if(v) setViewMode(v) }} size="small" sx={{ height: 32 }}><ToggleButton value="grid"><GridView fontSize="small" /></ToggleButton><ToggleButton value="list"><ViewList fontSize="small" /></ToggleButton></ToggleButtonGroup>
             <Button startIcon={<Sort />} variant="outlined" size="small" onClick={handleSortClick} sx={{ height: 32 }}>{getSortLabel()}</Button>
-            <Menu anchorEl={anchorElSort} open={Boolean(anchorElSort)} onClose={() => handleSortClose(null)}><MenuItem onClick={() => handleSortClose('date_desc')}>최신순</MenuItem><MenuItem onClick={() => handleSortClose('date_asc')}>오래된순</MenuItem><MenuItem onClick={() => handleSortClose('name_asc')}>이름순</MenuItem><MenuItem onClick={() => handleSortClose('name_desc')}>이름역순</MenuItem></Menu>
-            {isAdmin && ( <> <Button variant="outlined" size="small" startIcon={<CreateNewFolder />} onClick={handleOpenCreate} sx={{ height: 32 }}>폴더</Button><Button component="label" variant="contained" size="small" startIcon={<CloudUpload />} disabled={uploading} sx={{ height: 32 }}>업로드<input type="file" hidden onChange={handleFile} disabled={uploading} /></Button> </> )}
+            <Menu anchorEl={anchorElSort} open={Boolean(anchorElSort)} onClose={() => handleSortClose(null)}>
+              <MenuItem onClick={() => handleSortClose('date_desc')}>{t('archive.sort_latest')}</MenuItem>
+              <MenuItem onClick={() => handleSortClose('date_asc')}>{t('archive.sort_oldest')}</MenuItem>
+              <MenuItem onClick={() => handleSortClose('name_asc')}>{t('archive.sort_name_asc')}</MenuItem>
+              <MenuItem onClick={() => handleSortClose('name_desc')}>{t('archive.sort_name_desc')}</MenuItem>
+            </Menu>
+            {isAdmin && ( 
+              <> 
+                <Button variant="outlined" size="small" startIcon={<CreateNewFolder />} onClick={handleOpenCreate} sx={{ height: 32 }}>{t('archive.new_folder')}</Button>
+                <Button component="label" variant="contained" size="small" startIcon={<CloudUpload />} disabled={uploading} sx={{ height: 32 }}>
+                  {t('common.upload')}<input type="file" hidden onChange={handleFile} disabled={uploading} />
+                </Button> 
+              </> 
+            )}
           </Stack>
         </Box>
       </Paper>
@@ -118,12 +140,12 @@ export default function ArchiveTab({ clubId, isAdmin }) {
           {sortedFolders.map(folder => (
             <Card key={folder.id} variant="outlined" sx={{ width: 150, cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5', borderColor: '#bdbdbd' }, transition: '0.2s' }} onClick={() => handleEnterFolder(folder)}>
               <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                <Folder sx={{ fontSize: 40, color: '#ffb74d' }} /><Typography noWrap variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>{folder.name}</Typography><Typography variant="caption" color="text.secondary">폴더</Typography>
+                <Folder sx={{ fontSize: 40, color: '#ffb74d' }} /><Typography noWrap variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>{folder.name}</Typography><Typography variant="caption" color="text.secondary">{t('archive.type_folder')}</Typography>
               </CardContent>
               {isAdmin && (
                 <CardActions sx={{ justifyContent: 'center', pt: 0 }}>
-                   <Tooltip title="이름 변경"><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenRename(folder); }}><DriveFileRenameOutline fontSize="small" /></IconButton></Tooltip>
-                   <Tooltip title="삭제"><IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id) }}><Delete fontSize="small" /></IconButton></Tooltip>
+                   <Tooltip title={t('common.edit')}><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenRename(folder); }}><DriveFileRenameOutline fontSize="small" /></IconButton></Tooltip>
+                   <Tooltip title={t('common.delete')}><IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id) }}><Delete fontSize="small" /></IconButton></Tooltip>
                 </CardActions>
               )}
             </Card>
@@ -139,8 +161,8 @@ export default function ArchiveTab({ clubId, isAdmin }) {
         <TableContainer component={Paper} elevation={0} variant="outlined">
           <Table size="medium">
             <TableHead sx={{ bgcolor: '#f8fafc' }}><TableRow>
-                <TableCell width="60" align="center">{currentFolderId && ( <Tooltip title="상위 폴더로"><IconButton size="small" onClick={handleGoParent}><ArrowBack fontSize="small" /></IconButton></Tooltip> )}</TableCell>
-                <TableCell>이름</TableCell><TableCell width={120} align="center">게시자</TableCell><TableCell width={120} align="center">날짜</TableCell><TableCell width={120} align="right">관리</TableCell>
+                <TableCell width="60" align="center">{currentFolderId && ( <Tooltip title={t('archive.go_parent')}><IconButton size="small" onClick={handleGoParent}><ArrowBack fontSize="small" /></IconButton></Tooltip> )}</TableCell>
+                <TableCell>{t('archive.col_name')}</TableCell><TableCell width={120} align="center">{t('archive.col_uploader')}</TableCell><TableCell width={120} align="center">{t('archive.col_date')}</TableCell><TableCell width={120} align="right">{t('archive.col_manage')}</TableCell>
             </TableRow></TableHead>
             <TableBody>
               {sortedFolders.map(folder => (
@@ -163,7 +185,7 @@ export default function ArchiveTab({ clubId, isAdmin }) {
                   <TableCell align="right"><Stack direction="row" justifyContent="flex-end"><IconButton size="small" href={file.file_url} target="_blank"><Download fontSize="small" /></IconButton>{isAdmin && <IconButton size="small" color="error" onClick={() => handleDeleteArchive(file.id)}><Delete fontSize="small" /></IconButton>}</Stack></TableCell>
                 </TableRow>
               ))}
-              {sortedFolders.length === 0 && sortedArchives.length === 0 && ( <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5 }}><Typography color="text.secondary">이 폴더는 비어있습니다.</Typography></TableCell></TableRow> )}
+              {sortedFolders.length === 0 && sortedArchives.length === 0 && ( <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5 }}><Typography color="text.secondary">{t('archive.empty')}</Typography></TableCell></TableRow> )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -171,16 +193,16 @@ export default function ArchiveTab({ clubId, isAdmin }) {
 
       {/* 생성 모달 */}
       <Dialog open={openFolder} onClose={() => setOpenFolder(false)}>
-        <DialogTitle>새 폴더 만들기</DialogTitle>
-        <DialogContent><TextField autoFocus margin="dense" label="폴더 이름" fullWidth variant="standard" value={folderNameInput} onChange={e => setFolderNameInput(e.target.value)} /></DialogContent>
-        <DialogActions><Button onClick={() => setOpenFolder(false)}>취소</Button><Button onClick={handleCreateFolder} variant="contained">생성</Button></DialogActions>
+        <DialogTitle>{t('archive.create_folder_title')}</DialogTitle>
+        <DialogContent><TextField autoFocus margin="dense" label={t('archive.input_folder_name')} fullWidth variant="standard" value={folderNameInput} onChange={e => setFolderNameInput(e.target.value)} /></DialogContent>
+        <DialogActions><Button onClick={() => setOpenFolder(false)}>{t('common.cancel')}</Button><Button onClick={handleCreateFolder} variant="contained">{t('common.create')}</Button></DialogActions>
       </Dialog>
 
-      {/* [NEW] 수정 모달 */}
+      {/* 수정 모달 */}
       <Dialog open={openRename} onClose={() => setOpenRename(false)}>
-        <DialogTitle>폴더 이름 변경</DialogTitle>
-        <DialogContent><TextField autoFocus margin="dense" label="새 이름" fullWidth variant="standard" value={folderNameInput} onChange={e => setFolderNameInput(e.target.value)} /></DialogContent>
-        <DialogActions><Button onClick={() => setOpenRename(false)}>취소</Button><Button onClick={handleRenameFolder} variant="contained">저장</Button></DialogActions>
+        <DialogTitle>{t('archive.rename_title')}</DialogTitle>
+        <DialogContent><TextField autoFocus margin="dense" label={t('archive.input_new_name')} fullWidth variant="standard" value={folderNameInput} onChange={e => setFolderNameInput(e.target.value)} /></DialogContent>
+        <DialogActions><Button onClick={() => setOpenRename(false)}>{t('common.cancel')}</Button><Button onClick={handleRenameFolder} variant="contained">{t('common.save')}</Button></DialogActions>
       </Dialog>
     </Box>
   )

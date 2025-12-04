@@ -7,18 +7,23 @@ import {
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 import { format } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import { ko, ja } from 'date-fns/locale' // [추가] 일본어 로케일
 import { 
   LockClock, Delete, CalendarMonth, AddCircleOutline, LocationOn, 
   ArrowForward, AccessTime
 } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next' // [추가]
 
 export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigateToBoard }) {
+  const { t, i18n } = useTranslation() // [추가]
   const [date, setDate] = useState(new Date())
   const [activityEvents, setActivityEvents] = useState([]) 
   const [adminEvents, setAdminEvents] = useState([]) 
   const [schedTitle, setSchedTitle] = useState('')
   const [schedTime, setSchedTime] = useState('')
+
+  // [추가] 현재 언어에 맞는 date-fns 로케일 선택
+  const dateLocale = i18n.language === 'ja' ? ja : ko;
 
   useEffect(() => {
     if (clubId) {
@@ -55,17 +60,17 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   }
 
   const handleAddAdminSchedule = async () => {
-    if (!schedTitle) return alert('일정명을 입력하세요')
+    if (!schedTitle) return alert(t('calendar.alert_input_title')) // [수정]
     const dateStr = format(date, 'yyyy-MM-dd')
     const { error } = await supabase.from('schedules').insert([{
       club_id: clubId, title: schedTitle, start_date: dateStr, location: schedTime
     }])
-    if (error) alert('오류: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else { setSchedTitle(''); setSchedTime(''); fetchAdminSchedules() }
   }
 
   const handleDeleteAdminSchedule = async (id) => {
-    if(!confirm('삭제하시겠습니까?')) return
+    if(!confirm(t('common.confirm_delete'))) return // [수정]
     await supabase.from('schedules').delete().eq('id', id)
     fetchAdminSchedules()
   }
@@ -76,7 +81,8 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   }
 
   const selectedDateStr = format(date, 'yyyy-MM-dd')
-  const selectedDateDisplay = format(date, 'M월 d일 (eee)', { locale: ko })
+  // [수정] 날짜 포맷에 로케일 적용
+  const selectedDateDisplay = format(date, 'M/d (eee)', { locale: dateLocale })
 
   const todayActivities = activityEvents.filter(e => isSameDay(e.activity_date, selectedDateStr))
   const todayAdminSchedules = adminEvents.filter(e => isSameDay(e.start_date, selectedDateStr))
@@ -115,10 +121,11 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
         }}
       >
         <style>{`.custom-calendar { width: 100%; border: none; font-family: inherit; } .react-calendar__tile--active { background: #4F46E5 !important; color: white; borderRadius: 8px; } .react-calendar__tile--now { background: #eef2ff; color: #4F46E5; borderRadius: 8px; } .react-calendar__tile:enabled:hover, .react-calendar__tile:enabled:focus { background: #f3f4f6; borderRadius: 8px; }`}</style>
-        <Calendar onChange={setDate} value={date} tileContent={tileContent} formatDay={(locale, date) => format(date, 'd')} calendarType="gregory" className="custom-calendar" />
+        {/* [수정] locale 속성 추가 */}
+        <Calendar onChange={setDate} value={date} tileContent={tileContent} formatDay={(locale, date) => format(date, 'd')} calendarType="gregory" className="custom-calendar" locale={i18n.language} />
         <Stack direction="row" spacing={3} sx={{ mt: 3, justifyContent: 'center', pt: 2, borderTop:'1px solid #f1f5f9', flexShrink: 0 }}>
-          <Box sx={{ display:'flex', alignItems:'center', gap:1, fontSize:'0.85rem', fontWeight: 600, color:'#475569' }}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4F46E5' }} /> 활동 공지</Box>
-          {isAdmin && <Box sx={{ display:'flex', alignItems:'center', gap:1, fontSize:'0.85rem', fontWeight: 600, color:'#475569' }}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#db2777' }} /> 운영진 일정</Box>}
+          <Box sx={{ display:'flex', alignItems:'center', gap:1, fontSize:'0.85rem', fontWeight: 600, color:'#475569' }}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4F46E5' }} /> {t('calendar.legend_activity')}</Box> {/* [수정] */}
+          {isAdmin && <Box sx={{ display:'flex', alignItems:'center', gap:1, fontSize:'0.85rem', fontWeight: 600, color:'#475569' }}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#db2777' }} /> {t('calendar.legend_admin')}</Box>} {/* [수정] */}
         </Stack>
       </Paper>
 
@@ -130,29 +137,27 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
           flex: 1, p: 4, borderRadius: 3, bgcolor: '#f8fafc', 
           display: 'flex', flexDirection: 'column',
           height: '100%', 
-          overflow: 'hidden' // 내부 스크롤을 위해 컨테이너는 숨김
+          overflow: 'hidden' 
         }}
       >
-        {/* [수정] flexShrink: 0 추가하여 헤더가 찌그러지지 않게 함 */}
         <Typography variant="h5" fontWeight="900" color="text.primary" sx={{ mb: 3, flexShrink: 0 }}>
           {selectedDateDisplay}
         </Typography>
 
-        {/* [수정] flex: 1, minHeight: 0, overflowY: 'auto'로 스크롤 영역 확보 */}
         <Stack 
           spacing={2} 
           sx={{ 
             flex: 1, 
             overflowY: 'auto', 
             minHeight: 0,
-            pr: 1, // 스크롤바 여백
+            pr: 1, 
             pb: 1 
           }}
         >
           {todayActivities.length === 0 && todayAdminSchedules.length === 0 && (
             <Box sx={{ textAlign: 'center', py: 8, color: '#94a3b8' }}>
               <CalendarMonth sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-              <Typography fontWeight={500}>등록된 일정이 없습니다.</Typography>
+              <Typography fontWeight={500}>{t('calendar.no_events')}</Typography> {/* [수정] */}
             </Box>
           )}
 
@@ -165,7 +170,6 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                   borderRadius: 4, 
                   border: '1px solid #e2e8f0',
                   bgcolor: 'white',
-                  // [수정] flexShrink: 0 추가하여 카드 높이 줄어듦 방지
                   flexShrink: 0, 
                   transition: 'border-color 0.2s',
                 }}
@@ -174,7 +178,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                   <Box>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                       <Chip 
-                        label={ev.group_id ? ev.groups?.name : '전체'} 
+                        label={ev.group_id ? ev.groups?.name : t('board.general_notice')} 
                         size="small" 
                         sx={{ 
                           bgcolor: ev.group_id ? '#fff7ed' : '#eff6ff', 
@@ -215,13 +219,13 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                 elevation={0}
                 sx={{ 
                   borderRadius: 4, border: '1px solid #fecdd3', bgcolor: '#fff',
-                  flexShrink: 0 // [수정] 카드 줄어듦 방지
+                  flexShrink: 0 
                 }}
               >
                 <CardContent sx={{ p: 2, display:'flex', justifyContent:'space-between', alignItems:'flex-start', pb: '16px !important' }}>
                   <Box>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                      <Chip label="운영진" size="small" sx={{ bgcolor: '#fce7f3', color: '#be185d', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} />
+                      <Chip label={t('calendar.badge_admin')} size="small" sx={{ bgcolor: '#fce7f3', color: '#be185d', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} /> {/* [수정] */}
                       <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#be185d' }}>{ev.title}</Typography>
                     </Stack>
                     {ev.location && (
@@ -243,12 +247,12 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
         {isAdmin && (
           <Box sx={{ mt: 2, pt: 2, borderTop: '2px dashed #e2e8f0', flexShrink: 0 }}>
              <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" sx={{ mb: 1.5, display:'flex', alignItems:'center', gap:1 }}>
-               운영진 일정 추가
+               {t('calendar.add_admin_schedule')} {/* [수정] */}
              </Typography>
              <Stack direction="row" spacing={1}>
                 <TextField 
                   size="small" 
-                  placeholder="일정명" 
+                  placeholder={t('calendar.placeholder_title')} 
                   value={schedTitle} 
                   onChange={e => setSchedTitle(e.target.value)} 
                   fullWidth 
@@ -256,7 +260,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                 />
                 <TextField 
                   size="small" 
-                  placeholder="시간/장소" 
+                  placeholder={t('calendar.placeholder_time')} 
                   value={schedTime} 
                   onChange={e => setSchedTime(e.target.value)} 
                   sx={{ width: '40%', bgcolor:'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 

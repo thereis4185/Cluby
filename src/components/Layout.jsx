@@ -3,15 +3,22 @@ import {
   AppBar, Toolbar, Typography, Button, Box, Container, IconButton, 
   Avatar, Menu, MenuItem, ListItemIcon, Divider, Tooltip
 } from '@mui/material'
-import { Logout, Settings, Person, KeyboardArrowDown, ChatBubbleOutline } from '@mui/icons-material'
+import { Logout, Settings, Person, KeyboardArrowDown, ChatBubbleOutline, Language } from '@mui/icons-material' // [추가] Language 아이콘
 import { supabase } from '../supabaseClient'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next' // [추가] 번역 훅
 
 export default function Layout({ children, disableContainer = false, headerContent = null }) {
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation() // [추가]
   const [profile, setProfile] = useState({ username: '', full_name: '', avatar_url: '', email: '' })
-  const [anchorEl, setAnchorEl] = useState(null)
+  
+  // 메뉴 상태 관리
+  const [anchorEl, setAnchorEl] = useState(null) // 프로필 메뉴
+  const [langAnchorEl, setLangAnchorEl] = useState(null) // [추가] 언어 메뉴
+  
   const open = Boolean(anchorEl)
+  const langOpen = Boolean(langAnchorEl) // [추가]
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -28,10 +35,17 @@ export default function Layout({ children, disableContainer = false, headerConte
 
   const handleMenuOpen = (event) => setAnchorEl(event.currentTarget)
   const handleMenuClose = () => setAnchorEl(null)
+  
+  // [추가] 언어 메뉴 핸들러
+  const handleLangOpen = (event) => setLangAnchorEl(event.currentTarget)
+  const handleLangClose = () => setLangAnchorEl(null)
+  const changeLanguage = (lang) => {
+    i18n.changeLanguage(lang)
+    handleLangClose()
+  }
+
   const handleGoToMyPage = () => { handleMenuClose(); navigate('/mypage') }
   const handleLogout = async () => { handleMenuClose(); await supabase.auth.signOut(); navigate('/'); window.location.reload() }
-  
-  // [NEW] 채팅 페이지 이동
   const handleGoToChat = () => navigate('/chat')
 
   return (
@@ -65,14 +79,30 @@ export default function Layout({ children, disableContainer = false, headerConte
 
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 120, gap: 1 }}>
             
-            {/* [수정] 채팅 버튼 -> 페이지 이동 */}
-            <Tooltip title="내 채팅">
+            {/* [추가] 언어 변경 버튼 */}
+            <Tooltip title={t('layout.change_lang')}>
+              <IconButton onClick={handleLangOpen} sx={{ color: 'text.secondary', '&:hover':{color:'primary.main'} }}>
+                <Language />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={langAnchorEl}
+              open={langOpen}
+              onClose={handleLangClose}
+            >
+              <MenuItem onClick={() => changeLanguage('ko')} selected={i18n.language === 'ko'}>🇰🇷 한국어</MenuItem>
+              <MenuItem onClick={() => changeLanguage('ja')} selected={i18n.language === 'ja'}>🇯🇵 日本語</MenuItem>
+            </Menu>
+
+            {/* 채팅 버튼 */}
+            <Tooltip title={t('layout.my_chat')}>
               <IconButton onClick={handleGoToChat} sx={{ color: 'text.secondary', '&:hover':{color:'primary.main'} }}>
                 <ChatBubbleOutline />
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="계정 설정">
+            {/* 프로필 버튼 */}
+            <Tooltip title={t('layout.account_settings')}>
               <Button onClick={handleMenuOpen} color="inherit" sx={{ textTransform: 'none', borderRadius: 50, px: 1, py: 0.5, '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' } }}>
                 <Avatar src={profile.avatar_url} sx={{ width: 32, height: 32, bgcolor: 'primary.main', mr: 0.5 }}><Person fontSize="small" /></Avatar>
                 <KeyboardArrowDown fontSize="small" color="action" />
@@ -94,9 +124,14 @@ export default function Layout({ children, disableContainer = false, headerConte
                 </Box>
               </Box>
               <Divider sx={{ my: 1 }} />
-              <MenuItem onClick={handleGoToMyPage} sx={{ py: 1.5, px: 2.5 }}><ListItemIcon><Settings fontSize="small" /></ListItemIcon>계정 설정</MenuItem>
+              <MenuItem onClick={handleGoToMyPage} sx={{ py: 1.5, px: 2.5 }}>
+                <ListItemIcon><Settings fontSize="small" /></ListItemIcon>{t('layout.account_settings')}
+              </MenuItem>
               <Divider sx={{ my: 1 }} />
-              <MenuItem onClick={handleLogout} sx={{ py: 1.5, px: 2.5, color: 'error.main' }}><ListItemIcon><Logout fontSize="small" color="error" /></ListItemIcon><Typography variant="body2" fontWeight="bold">로그아웃</Typography></MenuItem>
+              <MenuItem onClick={handleLogout} sx={{ py: 1.5, px: 2.5, color: 'error.main' }}>
+                <ListItemIcon><Logout fontSize="small" color="error" /></ListItemIcon>
+                <Typography variant="body2" fontWeight="bold">{t('layout.logout')}</Typography>
+              </MenuItem>
             </Menu>
           </Box>
         </Toolbar>

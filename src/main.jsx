@@ -7,6 +7,7 @@ import theme from './theme'
 
 import App from './App.jsx'
 import './index.css'
+import './i18n'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>

@@ -1,0 +1,231 @@
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+
+const resources = {
+  // 🇰🇷 한국어 데이터
+  ko: {
+    translation: {
+      common: {
+        confirm: "확인",
+        confirm_delete: "정말 삭제하시겠습니까?",
+        cancel: "취소",
+        save: "저장",
+        delete: "삭제",
+        edit: "수정",
+        create: "생성",
+        search: "검색",
+        loading: "로딩 중...",
+        yes: "예",
+        no: "아니오",
+        upload: "업로드",
+      },
+      layout: {
+        change_lang: "언어 변경",
+        my_chat: "내 채팅",
+        account_settings: "계정 설정",
+        logout: "로그아웃",
+      },
+      home: {
+        hero_title: "흩어진 동아리 업무,\n이젠 한 곳에서",
+        hero_desc: "대학 생활의 모든 즐거움이 시작되는 곳,\nCluby에서 당신의 동아리를 찾아보세요.",
+        search_placeholder: "관심 있는 분야나 동아리를 검색해보세요",
+        create_club_btn: "아직 동아리가 없나요? 새로운 동아리 만들기",
+        my_clubs: "내 활동 동아리",
+        no_clubs_title: "아직 가입한 동아리가 없습니다.",
+        no_clubs_desc: "다양한 동아리들이 당신을 기다리고 있어요!",
+        go_explore: "동아리 탐색하러 가기",
+        explore_more_title: "더 많은 동아리가 궁금한가요?",
+        explore_more_desc: "새로운 관심사를 가진 사람들과 만나보세요.",
+        view_all: "전체 동아리 둘러보기",
+        create_modal_title: "동아리 생성",
+        create_modal_desc: "새로운 커뮤니티를 시작해보세요! 멋진 이름을 지어주세요.",
+        input_club_name: "예: 코딩 스터디, 맛집 탐방대",
+        role_manager: "👑 관리자",
+        role_staff: "🛡 운영진",
+        role_member: "멤버",
+        status_pending: "승인 대기",
+        enter_club: "동아리 입장",
+      },
+      archive: {
+        home: "자료실 홈",
+        new_folder: "폴더 생성",
+        sort_latest: "최신순",
+        sort_oldest: "오래된순",
+        sort_name_asc: "이름순",
+        sort_name_desc: "이름역순",
+        type_folder: "폴더",
+        go_parent: "상위 폴더로",
+        col_name: "이름",
+        col_uploader: "게시자",
+        col_date: "날짜",
+        col_manage: "관리",
+        empty: "이 폴더는 비어있습니다.",
+        create_folder_title: "새 폴더 만들기",
+        input_folder_name: "폴더 이름",
+        rename_title: "폴더 이름 변경",
+        input_new_name: "새 이름",
+      },
+      board: {
+        filter: "필터",
+        select_all: "전체 선택",
+        general_notice: "전체 공지",
+        feed: "피드",
+        write_post: "글쓰기",
+        no_posts: "표시할 게시글이 없습니다.",
+        vote_title: "활동 참여 투표",
+        vote_yes: "참여",
+        vote_late: "지각",
+        vote_no: "불참",
+        comments: "댓글",
+        comment_placeholder: "댓글 입력...",
+        comments_disabled: "댓글 중지됨",
+        write_new_post: "새 게시글 작성",
+        select_board: "게시판 선택",
+        type_general: "일반글",
+        type_activity: "활동/모임",
+        label_date: "활동 날짜",
+        label_location: "장소 및 시간",
+        placeholder_location: "예: 학생회관 14시",
+        add_photos: "사진 추가하기 (여러 장 선택 가능)",
+        label_title: "제목",
+        label_content: "내용",
+        allow_comments: "댓글 작성 허용",
+        btn_submit: "등록하기",
+        alert_select_group: "작성할 그룹을 선택해주세요.",
+        alert_input_title: "제목을 입력해주세요.",
+        alert_select_date: "활동 날짜를 선택해주세요.",
+        msg_posted: "등록 완료"
+      },
+      calendar: {
+        legend_activity: "활동 공지",
+        legend_admin: "운영진 일정",
+        no_events: "등록된 일정이 없습니다.",
+        badge_admin: "운영진",
+        add_admin_schedule: "운영진 일정 추가",
+        placeholder_title: "일정명",
+        placeholder_time: "시간/장소",
+        alert_input_title: "일정명을 입력하세요"
+      }
+    }
+  },
+  // 🇯🇵 일본어 데이터
+  ja: {
+    translation: {
+      common: {
+        confirm: "確認",
+        confirm_delete: "本当に削除しますか？",
+        cancel: "キャンセル",
+        save: "保存",
+        delete: "削除",
+        edit: "修正",
+        create: "作成",
+        search: "検索",
+        loading: "読み込み中...",
+        yes: "はい",
+        no: "いいえ",
+        upload: "アップロード",
+      },
+      layout: {
+        change_lang: "言語変更",
+        my_chat: "チャット",
+        account_settings: "アカウント設定",
+        logout: "ログアウト",
+      },
+      home: {
+        hero_title: "散らばったサークル業務、\nこれからは一箇所で",
+        hero_desc: "大学生活のすべての楽しみが始まる場所、\nClubyであなたのサークルを見つけましょう。",
+        search_placeholder: "興味のある分野やサークルを検索",
+        create_club_btn: "まだサークルがないですか？ 新しいサークルを作る",
+        my_clubs: "参加中のサークル",
+        no_clubs_title: "まだ参加しているサークルがありません。",
+        no_clubs_desc: "様々なサークルがあなたを待っています！",
+        go_explore: "サークルを探しに行く",
+        explore_more_title: "もっと多くのサークルが気になりますか？",
+        explore_more_desc: "新しい趣味を持つ人々と出会ってみましょう。",
+        view_all: "全てのサークルを見る",
+        create_modal_title: "サークル作成",
+        create_modal_desc: "新しいコミュニティを始めましょう！素敵な名前をつけてください。",
+        input_club_name: "例：プログラミング勉強会、グルメ探訪隊",
+        role_manager: "👑 管理者",
+        role_staff: "🛡 運営陣",
+        role_member: "メンバー",
+        status_pending: "承認待ち",
+        enter_club: "サークルに入場",
+      },
+      archive: {
+        home: "資料室ホーム",
+        new_folder: "フォルダ作成",
+        sort_latest: "最新順",
+        sort_oldest: "古い順",
+        sort_name_asc: "名前順",
+        sort_name_desc: "名前逆順",
+        type_folder: "フォルダ",
+        go_parent: "上のフォルダへ",
+        col_name: "名前",
+        col_uploader: "投稿者",
+        col_date: "日付",
+        col_manage: "管理",
+        empty: "このフォルダは空です。",
+        create_folder_title: "新しいフォルダを作成",
+        input_folder_name: "フォルダ名",
+        rename_title: "フォルダ名変更",
+        input_new_name: "新しい名前",
+      },
+      board: {
+        filter: "フィルター",
+        select_all: "全選択",
+        general_notice: "全体お知らせ",
+        feed: "フィード",
+        write_post: "投稿する",
+        no_posts: "表示する投稿がありません。",
+        vote_title: "活動参加投票",
+        vote_yes: "参加",
+        vote_late: "遅刻",
+        vote_no: "不参加",
+        comments: "コメント",
+        comment_placeholder: "コメントを入力...",
+        comments_disabled: "コメント無効",
+        write_new_post: "新規投稿",
+        select_board: "掲示板選択",
+        type_general: "一般",
+        type_activity: "活動・集まり",
+        label_date: "活動日",
+        label_location: "場所と時間",
+        placeholder_location: "例：学生会館 14時",
+        add_photos: "写真追加 (複数可)",
+        label_title: "タイトル",
+        label_content: "内容",
+        allow_comments: "コメント許可",
+        btn_submit: "登録",
+        alert_select_group: "作成するグループを選択してください。",
+        alert_input_title: "タイトルを入力してください。",
+        alert_select_date: "活動日を選択してください。",
+        msg_posted: "登録完了"
+      },
+      calendar: {
+        legend_activity: "活動のお知らせ",
+        legend_admin: "運営陣の日程",
+        no_events: "登録された日程がありません。",
+        badge_admin: "運営陣",
+        add_admin_schedule: "運営陣の日程追加",
+        placeholder_title: "日程名",
+        placeholder_time: "時間/場所",
+        alert_input_title: "日程名を入力してください"
+      }
+    }
+  }
+};
+
+i18n
+  .use(LanguageDetector) // 브라우저 언어 감지
+  .use(initReactI18next)
+  .init({
+    resources,
+    fallbackLng: 'ko', // 기본 언어는 한국어
+    interpolation: {
+      escapeValue: false 
+    }
+  });
+
+export default i18n;
