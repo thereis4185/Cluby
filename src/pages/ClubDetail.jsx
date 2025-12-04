@@ -18,7 +18,9 @@ import ChatTab from '../features/ChatTab'
 
 import { 
   Tabs, Tab, Box, Typography, Container, Stack, Chip, Button, Fade, Avatar,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField 
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  // [추가] 체크박스 컴포넌트
+  Checkbox, FormControlLabel 
 } from '@mui/material'
 import { 
   Verified, PhotoCamera, Settings 
@@ -48,7 +50,7 @@ export default function ClubDetail() {
   // --- [State: 가입 신청 관련] ---
   const [openJoinDialog, setOpenJoinDialog] = useState(false)
   const [questions, setQuestions] = useState([]) 
-  const [answers, setAnswers] = useState({})
+  const [answers, setAnswers] = useState({}) 
   const [loadingQuestions, setLoadingQuestions] = useState(false)
 
   useEffect(() => {
@@ -105,7 +107,6 @@ export default function ClubDetail() {
     if (!currentUserId) return alert('로그인이 필요합니다.');
     
     setLoadingQuestions(true);
-    // form_structure(JSON) 가져오기
     const { data, error } = await supabase
       .from('club_application_forms')
       .select('form_structure') 
@@ -113,10 +114,12 @@ export default function ClubDetail() {
       .maybeSingle();
 
     if (error) {
-      console.error(error);
-      alert('가입 양식을 불러오는데 실패했습니다.');
+      // 데이터가 아예 없는 경우(406)도 포함될 수 있으므로 에러 처리는 유연하게
+      console.log(error);
+      setQuestions([]);
+      setAnswers({});
+      setOpenJoinDialog(true);
     } else {
-      // 데이터가 없으면 빈 배열
       setQuestions(data?.form_structure || []);
       setAnswers({}); 
       setOpenJoinDialog(true);
@@ -126,13 +129,15 @@ export default function ClubDetail() {
 
   // 2. 가입 신청 최종 제출
   const handleSubmitApplication = async () => {
-    // 답변 필수 체크
+    // 필수 체크 (체크박스는 값이 없으면 false/"No" 처리하므로 체크 제외 가능하지만, 여기선 텍스트 위주로 체크)
     const unanswered = questions.some((q, idx) => {
+      // 체크박스는 필수 체크에서 제외하거나, 반드시 동의해야 한다면 로직 추가 필요
+      if (q.type === 'checkbox') return false; 
       const key = q.id || idx; 
       return !answers[key] || !answers[key].trim();
     });
     
-    if (unanswered) return alert('모든 질문에 답변해주세요.');
+    if (unanswered) return alert('모든 필수 질문에 답변해주세요.');
 
     if (!confirm('작성한 내용으로 가입 신청하시겠습니까?')) return;
 
@@ -146,15 +151,20 @@ export default function ClubDetail() {
       
       if (memberError) throw memberError;
 
-      // (2) 답변 데이터 배열 변환 (중요: 여기서 .map 오류 방지)
-      // [{ question: "이름", answer: "홍길동" }, ...] 형태로 변환
+      // (2) 답변 데이터 배열 변환
       const submissionDataArray = questions.map((q, idx) => {
-        // label을 최우선으로, 없으면 question, 그것도 없으면 기본값
-        const qText = q.label || q.question || q.content || `질문 ${idx + 1}`;
+        const qText = q.label || q.question || `질문 ${idx + 1}`;
         const key = q.id || idx;
+        
+        // 체크박스인 경우 값이 없으면 '아니오'로 저장
+        let val = answers[key];
+        if (q.type === 'checkbox') {
+          val = val === '예' ? '예' : '아니오';
+        }
+
         return {
           question: qText,
-          answer: answers[key]
+          answer: val || '' 
         };
       });
 
@@ -164,7 +174,7 @@ export default function ClubDetail() {
         .insert([{ 
           club_id: id, 
           user_id: currentUserId,
-          submission_data: submissionDataArray // 배열로 저장!
+          submission_data: submissionDataArray 
         }]);
 
       if (subError) throw subError;
@@ -407,9 +417,9 @@ export default function ClubDetail() {
              </Typography>
            ) : (
              <Stack spacing={3} sx={{ mt: 1 }}>
-               {/* 질문 렌더링 로직 수정됨: label -> question -> content 순서 */}
                {questions.map((q, idx) => {
-                 const questionText = q.label || q.question || q.content || `질문 ${idx + 1}`;
+                 // 질문 텍스트
+                 const questionText = q.label || q.question || `질문 ${idx + 1}`;
                  const answerKey = q.id || idx;
 
                  return (
@@ -417,15 +427,40 @@ export default function ClubDetail() {
                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
                        Q{idx + 1}. {questionText}
                      </Typography>
-                     <TextField
-                       fullWidth
-                       multiline
-                       rows={3}
-                       variant="outlined"
-                       placeholder="답변을 입력해주세요"
-                       value={answers[answerKey] || ''}
-                       onChange={(e) => setAnswers({...answers, [answerKey]: e.target.value})}
-                     />
+                     
+                     {/* [핵심 수정] 타입별 입력 UI 분기 처리 */}
+                     {q.type === 'textarea' ? (
+                       // 1. 장문형
+                       <TextField
+                         fullWidth
+                         multiline
+                         rows={3}
+                         variant="outlined"
+                         placeholder="답변을 입력해주세요"
+                         value={answers[answerKey] || ''}
+                         onChange={(e) => setAnswers({...answers, [answerKey]: e.target.value})}
+                       />
+                     ) : q.type === 'checkbox' ? (
+                       // 2. 체크박스
+                       <FormControlLabel
+                         control={
+                           <Checkbox
+                             checked={answers[answerKey] === '예'}
+                             onChange={(e) => setAnswers({...answers, [answerKey]: e.target.checked ? '예' : '아니오'})}
+                           />
+                         }
+                         label="네 (Yes)"
+                       />
+                     ) : (
+                       // 3. 단답형 (기본)
+                       <TextField
+                         fullWidth
+                         variant="outlined"
+                         placeholder="답변을 입력해주세요"
+                         value={answers[answerKey] || ''}
+                         onChange={(e) => setAnswers({...answers, [answerKey]: e.target.value})}
+                       />
+                     )}
                    </Box>
                  )
                })}
