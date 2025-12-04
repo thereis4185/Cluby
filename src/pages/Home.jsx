@@ -7,7 +7,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, 
   Paper, InputBase, Container, Fade, Avatar, Stack
 } from '@mui/material'
-import { Add, Delete, Search, ArrowForward, EmojiEvents, Groups } from '@mui/icons-material'
+import { Add, Delete, Search, ArrowForward, Groups, Explore } from '@mui/icons-material'
 
 export default function Home({ session }) {
   const [myClubs, setMyClubs] = useState([])
@@ -33,7 +33,7 @@ export default function Home({ session }) {
   }
 
   const handleDeleteClub = async (e, clubId, clubName) => {
-    e.stopPropagation() // 카드 클릭 이벤트 방지
+    e.stopPropagation() 
     if (!confirm(`'${clubName}'을(를) 정말 삭제하시겠습니까?`)) return
     const { error } = await supabase.from('clubs').delete().eq('id', clubId)
     if (error) alert('실패: ' + error.message); else { alert('삭제되었습니다.'); fetchClubs() }
@@ -45,15 +45,13 @@ export default function Home({ session }) {
     navigate(`/explore?q=${encodeURIComponent(searchQuery)}`)
   }
 
-  // 역할에 따른 배지 스타일
   const getRoleBadge = (status, role) => {
-    if (status === 'pending') return { label: '승인 대기', color: '#f59e0b', bg: '#fffbeb' } // Amber
-    if (role === 'manager') return { label: '👑 관리자', color: '#dc2626', bg: '#fef2f2' } // Red
-    if (role === 'staff') return { label: '🛡 운영진', color: '#2563eb', bg: '#eff6ff' } // Blue
-    return { label: '멤버', color: '#059669', bg: '#ecfdf5' } // Green
+    if (status === 'pending') return { label: '승인 대기', color: '#f59e0b', bg: '#fffbeb' } 
+    if (role === 'manager') return { label: '👑 관리자', color: '#dc2626', bg: '#fef2f2' } 
+    if (role === 'staff') return { label: '🛡 운영진', color: '#2563eb', bg: '#eff6ff' } 
+    return { label: '멤버', color: '#059669', bg: '#ecfdf5' } 
   }
 
-  // 문자열 -> 색상 변환 (프로필 아바타용)
   const stringToColor = (string) => {
     let hash = 0;
     for (let i = 0; i < string.length; i += 1) { hash = string.charCodeAt(i) + ((hash << 5) - hash); }
@@ -67,7 +65,7 @@ export default function Home({ session }) {
       {/* Hero Section */}
       <Box sx={{ 
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(120deg, #1e3a8a 0%, #3b82f6 50%, #8b5cf6 100%)', // Deep Blue -> Purple
+        background: 'linear-gradient(120deg, #1e3a8a 0%, #3b82f6 50%, #8b5cf6 100%)', 
         color: 'white', 
         pt: { xs: 8, md: 12 }, pb: { xs: 10, md: 14 },
         mb: 8, borderRadius: '0 0 50px 50px', 
@@ -75,7 +73,6 @@ export default function Home({ session }) {
         textAlign: 'center',
         boxShadow: '0 10px 30px -10px rgba(59, 130, 246, 0.5)'
       }}>
-        {/* 배경 장식 원 (데코레이션) */}
         <Box sx={{ position: 'absolute', top: -100, left: -100, width: 300, height: 300, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.1)', filter: 'blur(50px)' }} />
         <Box sx={{ position: 'absolute', bottom: -50, right: -50, width: 200, height: 200, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.1)', filter: 'blur(40px)' }} />
 
@@ -87,7 +84,6 @@ export default function Home({ session }) {
             대학 생활의 모든 즐거움이 시작되는 곳,<br/>Cluby에서 당신의 동아리를 찾아보세요.
           </Typography>
 
-          {/* 검색창 */}
           <Paper
             component="form"
             onSubmit={handleSearchSubmit}
@@ -122,7 +118,6 @@ export default function Home({ session }) {
             </Button>
           </Paper>
 
-          {/* 동아리 생성 텍스트 버튼 */}
           <Button 
             onClick={() => setOpen(true)}
             startIcon={<Add />}
@@ -151,102 +146,140 @@ export default function Home({ session }) {
         </Box>
         
         {myClubs.length === 0 ? (
+          // [수정됨] 동아리가 없을 때 표시 화면
           <Paper 
             elevation={0}
             sx={{ 
               p: 8, textAlign: 'center', borderRadius: 4, 
-              border: '2px dashed #cbd5e1', bgcolor: '#f8fafc' 
+              border: '2px dashed #cbd5e1', bgcolor: '#f8fafc',
+              display: 'flex', flexDirection: 'column', alignItems: 'center'
             }}
           >
             <Groups sx={{ fontSize: 60, color: '#cbd5e1', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" fontWeight="bold">아직 가입한 동아리가 없습니다.</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>위 검색창을 통해 마음에 드는 동아리를 찾아보세요!</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 4 }}>
+              다양한 동아리들이 당신을 기다리고 있어요!
+            </Typography>
+            <Button 
+              variant="contained" 
+              size="large"
+              startIcon={<Explore />}
+              onClick={() => navigate('/explore')}
+              sx={{ 
+                bgcolor: '#4F46E5', borderRadius: 3, px: 4, py: 1.5,
+                fontWeight: 'bold', boxShadow: 'none',
+                '&:hover': { bgcolor: '#4338ca' }
+              }}
+            >
+              동아리 탐색하러 가기
+            </Button>
           </Paper>
         ) : (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
-            {myClubs.map(item => {
-              const badge = getRoleBadge(item.status, item.role)
-              return (
-                <Fade in={true} timeout={500} key={item.id}>
-                  <Card 
-                    elevation={0}
-                    sx={{ 
-                      height: '100%', borderRadius: 4,
-                      border: '1px solid #e2e8f0',
-                      display: 'flex', flexDirection: 'column',
-                      transition: 'all 0.3s ease',
-                      '&:hover': { 
-                        transform: 'translateY(-8px)', 
-                        boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
-                        borderColor: 'transparent'
-                      }
-                    }}
-                  >
-                    <CardContent sx={{ p: 3, flexGrow: 1 }}>
-                      {/* 상단: 아바타 & 삭제버튼 */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                        <Avatar 
-                          sx={{ 
-                            bgcolor: stringToColor(item.clubs?.name || ''), 
-                            width: 56, height: 56, 
-                            fontSize: '1.5rem', fontWeight: 'bold',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                          }}
-                        >
-                          {item.clubs?.name?.[0]}
-                        </Avatar>
-                        
-                        {/* 관리자일 경우 삭제 버튼 (작고 흐리게) */}
-                        {item.role === 'manager' && (
-                          <IconButton 
-                            size="small" 
-                            onClick={(e) => handleDeleteClub(e, item.club_id, item.clubs?.name)}
-                            sx={{ color: '#cbd5e1', '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' } }}
+          <>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3, mb: 6 }}>
+              {myClubs.map(item => {
+                const badge = getRoleBadge(item.status, item.role)
+                return (
+                  <Fade in={true} timeout={500} key={item.id}>
+                    <Card 
+                      elevation={0}
+                      sx={{ 
+                        height: '100%', borderRadius: 4,
+                        border: '1px solid #e2e8f0',
+                        display: 'flex', flexDirection: 'column',
+                        transition: 'all 0.3s ease',
+                        '&:hover': { 
+                          transform: 'translateY(-8px)', 
+                          boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
+                          borderColor: 'transparent'
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ p: 3, flexGrow: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          <Avatar 
+                            sx={{ 
+                              bgcolor: stringToColor(item.clubs?.name || ''), 
+                              width: 56, height: 56, 
+                              fontSize: '1.5rem', fontWeight: 'bold',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            }}
                           >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Box>
+                            {item.clubs?.name?.[0]}
+                          </Avatar>
+                          {item.role === 'manager' && (
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => handleDeleteClub(e, item.club_id, item.clubs?.name)}
+                              sx={{ color: '#cbd5e1', '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' } }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                        <Typography variant="h6" fontWeight="bold" noWrap sx={{ mb: 1, fontSize: '1.1rem' }}>
+                          {item.clubs?.name}
+                        </Typography>
+                        <Chip 
+                          label={badge.label} 
+                          size="small" 
+                          sx={{ 
+                            bgcolor: badge.bg, color: badge.color, 
+                            fontWeight: 'bold', borderRadius: 1.5,
+                            border: `1px solid ${badge.color}20` 
+                          }} 
+                        />
+                      </CardContent>
+                      <CardActions sx={{ p: 3, pt: 0 }}>
+                        <Button 
+                          fullWidth 
+                          variant={item.status === 'approved' ? "contained" : "outlined"}
+                          color="primary"
+                          disabled={item.status !== 'approved'}
+                          onClick={() => navigate(`/club/${item.club_id}`)}
+                          endIcon={item.status === 'approved' && <ArrowForward />}
+                          sx={{ py: 1.2, borderRadius: 2, boxShadow: 'none', fontWeight: 'bold', textTransform: 'none' }}
+                        >
+                          {item.status === 'approved' ? '동아리 입장' : '승인 대기 중'}
+                        </Button>
+                      </CardActions>
+                    </Card>
+                  </Fade>
+                )
+              })}
+            </Box>
 
-                      {/* 타이틀 & 배지 */}
-                      <Typography variant="h6" fontWeight="bold" noWrap sx={{ mb: 1, fontSize: '1.1rem' }}>
-                        {item.clubs?.name}
-                      </Typography>
-                      
-                      <Chip 
-                        label={badge.label} 
-                        size="small" 
-                        sx={{ 
-                          bgcolor: badge.bg, color: badge.color, 
-                          fontWeight: 'bold', borderRadius: 1.5,
-                          border: `1px solid ${badge.color}20` 
-                        }} 
-                      />
-                    </CardContent>
-
-                    <CardActions sx={{ p: 3, pt: 0 }}>
-                      <Button 
-                        fullWidth 
-                        variant={item.status === 'approved' ? "contained" : "outlined"}
-                        color="primary"
-                        disabled={item.status !== 'approved'}
-                        onClick={() => navigate(`/club/${item.club_id}`)}
-                        endIcon={item.status === 'approved' && <ArrowForward />}
-                        sx={{ 
-                          py: 1.2, borderRadius: 2, 
-                          boxShadow: 'none', 
-                          fontWeight: 'bold',
-                          textTransform: 'none'
-                        }}
-                      >
-                        {item.status === 'approved' ? '동아리 입장' : '승인 대기 중'}
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Fade>
-              )
-            })}
-          </Box>
+            {/* [추가됨] 동아리가 있을 때 하단 탐색 유도 섹션 */}
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 4, borderRadius: 4, bgcolor: '#eff6ff', 
+                display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, 
+                alignItems: 'center', justifyContent: 'space-between', gap: 2
+              }}
+            >
+              <Box>
+                <Typography variant="h6" fontWeight="bold" color="#1e3a8a" gutterBottom>
+                  더 많은 동아리가 궁금한가요?
+                </Typography>
+                <Typography variant="body2" color="#64748b">
+                  새로운 관심사를 가진 사람들과 만나보세요. 다양한 동아리들이 기다리고 있습니다.
+                </Typography>
+              </Box>
+              <Button 
+                variant="contained" 
+                onClick={() => navigate('/explore')}
+                endIcon={<ArrowForward />}
+                sx={{ 
+                  bgcolor: 'white', color: '#2563eb', fontWeight: 'bold', 
+                  borderRadius: 3, px: 3, py: 1.5, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.1)',
+                  '&:hover': { bgcolor: '#f8fafc' }
+                }}
+              >
+                전체 동아리 둘러보기
+              </Button>
+            </Paper>
+          </>
         )}
       </Container>
 
@@ -274,9 +307,7 @@ export default function Home({ session }) {
             placeholder="예: 코딩 스터디, 맛집 탐방대"
             value={newClubName} 
             onChange={e => setNewClubName(e.target.value)} 
-            sx={{ 
-              '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } 
-            }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#f8fafc' } }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'stretch', gap: 1 }}>
