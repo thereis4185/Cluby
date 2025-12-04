@@ -66,7 +66,8 @@ export default function ClubSettingsTab({ clubId }) {
 
   // --- 신청서 양식 핸들러 ---
   const addQuestion = () => {
-    setFormQuestions([...formQuestions, { id: Date.now(), label: '', type: 'text', required: true }])
+    // [수정] label -> question으로 키 이름 변경 (가입 화면에서 인식이 잘 되도록)
+    setFormQuestions([...formQuestions, { id: Date.now(), question: '', type: 'text', required: true }])
   }
 
   const removeQuestion = (id) => {
@@ -77,12 +78,12 @@ export default function ClubSettingsTab({ clubId }) {
     setFormQuestions(formQuestions.map(q => q.id === id ? { ...q, [field]: value } : q))
   }
 
-  // [수정됨] UPSERT 적용
+  // [수정] UPSERT에 onConflict 옵션 추가 (409 에러 해결)
   const handleSaveForm = async () => {
     const { error } = await supabase.from('club_application_forms').upsert({ 
       club_id: clubId, 
       form_structure: formQuestions 
-    }, { onConflict: 'club_id' }) // club_id가 겹치면 업데이트
+    }, { onConflict: 'club_id' }) 
     
     if (error) alert('양식 저장 실패: ' + error.message)
     else alert('가입 신청서 양식이 저장되었습니다.')
@@ -154,11 +155,12 @@ export default function ClubSettingsTab({ clubId }) {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
                 <Typography sx={{ pt: 2, fontWeight: 'bold', color: '#999' }}>Q{index + 1}</Typography>
                 
+                {/* [수정] q.label -> q.question으로 변경 */}
                 <TextField 
                   label="질문 내용 (예: 학번을 입력해주세요)" 
                   fullWidth size="small"
-                  value={q.label} 
-                  onChange={e => updateQuestion(q.id, 'label', e.target.value)} 
+                  value={q.question} 
+                  onChange={e => updateQuestion(q.id, 'question', e.target.value)} 
                 />
                 
                 <FormControl size="small" sx={{ minWidth: 140 }}>

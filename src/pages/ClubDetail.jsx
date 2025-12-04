@@ -47,8 +47,8 @@ export default function ClubDetail() {
 
   // --- [State: 가입 신청 관련] ---
   const [openJoinDialog, setOpenJoinDialog] = useState(false)
-  const [questions, setQuestions] = useState([]) // 질문 양식 (JSON 배열)
-  const [answers, setAnswers] = useState({})     // 유저 답변
+  const [questions, setQuestions] = useState([]) 
+  const [answers, setAnswers] = useState({})
   const [loadingQuestions, setLoadingQuestions] = useState(false)
 
   useEffect(() => {
@@ -117,8 +117,7 @@ export default function ClubDetail() {
       alert('가입 양식을 불러오는데 실패했습니다.');
     } else {
       // 데이터가 없으면 빈 배열
-      const loadedQuestions = data?.form_structure || [];
-      setQuestions(loadedQuestions);
+      setQuestions(data?.form_structure || []);
       setAnswers({}); 
       setOpenJoinDialog(true);
     }
@@ -128,7 +127,6 @@ export default function ClubDetail() {
   // 2. 가입 신청 최종 제출
   const handleSubmitApplication = async () => {
     // 답변 필수 체크
-    // 질문 객체에 id가 없으면 인덱스를 키로 사용
     const unanswered = questions.some((q, idx) => {
       const key = q.id || idx; 
       return !answers[key] || !answers[key].trim();
@@ -148,13 +146,25 @@ export default function ClubDetail() {
       
       if (memberError) throw memberError;
 
-      // (2) 신청서(Submission) 저장 (답변 JSON 포함)
+      // (2) 답변 데이터 배열 변환 (중요: 여기서 .map 오류 방지)
+      // [{ question: "이름", answer: "홍길동" }, ...] 형태로 변환
+      const submissionDataArray = questions.map((q, idx) => {
+        // label을 최우선으로, 없으면 question, 그것도 없으면 기본값
+        const qText = q.label || q.question || q.content || `질문 ${idx + 1}`;
+        const key = q.id || idx;
+        return {
+          question: qText,
+          answer: answers[key]
+        };
+      });
+
+      // (3) 신청서(Submission) 저장
       const { error: subError } = await supabase
         .from('club_application_submissions')
         .insert([{ 
           club_id: id, 
           user_id: currentUserId,
-          submission_data: answers // { "0": "답변1", "1": "답변2" } 형태
+          submission_data: submissionDataArray // 배열로 저장!
         }]);
 
       if (subError) throw subError;
@@ -397,11 +407,10 @@ export default function ClubDetail() {
              </Typography>
            ) : (
              <Stack spacing={3} sx={{ mt: 1 }}>
-               {/* 질문 렌더링 로직 수정됨 */}
+               {/* 질문 렌더링 로직 수정됨: label -> question -> content 순서 */}
                {questions.map((q, idx) => {
-                 // JSON에서 질문 내용 찾기 (여러 키 대응)
-                 const questionText = q.question || q.content || q.text || q.title || `질문 ${idx + 1}`;
-                 const answerKey = q.id || idx; // id가 없으면 index 사용
+                 const questionText = q.label || q.question || q.content || `질문 ${idx + 1}`;
+                 const answerKey = q.id || idx;
 
                  return (
                    <Box key={answerKey}>
