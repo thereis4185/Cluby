@@ -455,7 +455,7 @@ const resources = {
           calendar: "カレンダー",
           archive: "資料室",
           photo: "アルバム",
-          group: "小グループ",
+          group: "グループ",
           chat: "チャット",
           group_manage: "グループ管理",
           member_manage: "メンバー管理",
@@ -607,7 +607,7 @@ const resources = {
           desc_joined: "このグループの活動内容を確認し、メンバーと交流しましょう。",
           desc_private: "このグループはメンバーにのみ公開された空間です。",
           no_access: "アクセス権限なし",
-          no_joined_groups: "まだ所属している小グループがありません。"
+          no_joined_groups: "まだ所属しているグループがありません。"
         }
       },
       chat: {
@@ -619,7 +619,7 @@ const resources = {
       },
       chat_page: {
         my_chat: "チャット",
-        small_group: "小グループ",
+        small_group: "グループ",
         all: "全体",
         select_room: "チャットルームを選択してください。"
       },
