@@ -190,6 +190,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                     <Stack direction="row" spacing={1} alignItems="center">
                       {ev.location && (
                         <Typography variant="body2" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
+                          {ev.location}
                         </Typography>
                       )}
                     </Stack>
