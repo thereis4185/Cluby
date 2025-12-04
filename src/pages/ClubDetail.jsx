@@ -399,7 +399,7 @@ export default function ClubDetail() {
 
             {isMember && activeTab === 'group_manage' && <GroupManageTab clubId={id} isAdmin={isAdmin} currentUserId={currentUserId} />}
             {isMember && activeTab === 'member_manage' && isAdmin && <MemberManageTab clubId={id} myRole={myRole} />}
-            {isMember && activeTab === 'ledger' && isAdmin && <LedgerTab clubId={id} isAdmin={isAdmin} />}
+            {isMember && activeTab === 'ledger' && isAdmin && <LedgerTab clubId={id} isAdmin={isAdmin} myRole = {myRole}/>}
             {isMember && activeTab === 'settings' && isAdmin && <ClubSettingsTab clubId={id} />}
           </Box>
         </Fade>
