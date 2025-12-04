@@ -47,8 +47,8 @@ export default function ClubDetail() {
 
   // --- [State: 가입 신청 관련] ---
   const [openJoinDialog, setOpenJoinDialog] = useState(false)
-  const [questions, setQuestions] = useState([]) // 질문 양식
-  const [answers, setAnswers] = useState({})     // 유저 답변
+  const [questions, setQuestions] = useState([]) // JSON 배열로 저장된 질문들
+  const [answers, setAnswers] = useState({})     // 유저 답변 { "질문ID": "답변" }
   const [loadingQuestions, setLoadingQuestions] = useState(false)
 
   useEffect(() => {
@@ -100,32 +100,39 @@ export default function ClubDetail() {
 
   // --- [Action Handlers] ---
 
-  // 1. 가입 버튼 클릭 시: club_application_forms 조회
+  // 1. 가입 버튼 클릭 시: club_application_forms의 form_structure(JSON) 가져오기
   const handleOpenJoin = async () => {
     if (!currentUserId) return alert('로그인이 필요합니다.');
     
     setLoadingQuestions(true);
+    // [변경] JSON 컬럼(form_structure)이 있는 행을 하나 가져옵니다.
     const { data, error } = await supabase
-      .from('club_application_forms') // 올바른 테이블명
-      .select('*')
+      .from('club_application_forms')
+      .select('form_structure') 
       .eq('club_id', id)
-      .order('id', { ascending: true });
+      .maybeSingle();
 
     if (error) {
       console.error(error);
       alert('가입 양식을 불러오는데 실패했습니다.');
     } else {
-      setQuestions(data || []);
+      // form_structure가 없으면 빈 배열
+      setQuestions(data?.form_structure || []);
       setAnswers({}); 
       setOpenJoinDialog(true);
     }
     setLoadingQuestions(false);
   }
 
-  // 2. 가입 신청 최종 제출
+  // 2. 가입 신청 최종 제출 (JSON 통째로 저장)
   const handleSubmitApplication = async () => {
-    // 필수 답변 체크
-    const unanswered = questions.some(q => !answers[q.id] || !answers[q.id].trim());
+    // 필수 답변 체크 (질문이 있는데 답변이 비었는지)
+    // 질문 객체 구조에 따라 'id'가 있을 수도, 없을 수도 있으니 index 사용 고려
+    const unanswered = questions.some((q, idx) => {
+      const key = q.id || idx; // 질문에 id가 있으면 쓰고, 없으면 인덱스 사용
+      return !answers[key] || !answers[key].trim();
+    });
+    
     if (unanswered) return alert('모든 질문에 답변해주세요.');
 
     if (!confirm('작성한 내용으로 가입 신청하시겠습니까?')) return;
@@ -140,34 +147,17 @@ export default function ClubDetail() {
       
       if (memberError) throw memberError;
 
-      // (2) 제출 내역(Submission) 생성
-      const { data: submissionData, error: subError } = await supabase
+      // (2) 제출 내역(Submission) 생성 + 답변 데이터(JSON) 저장
+      // 별도의 answers 테이블 없이, submission_data 컬럼에 JSON으로 저장
+      const { error: subError } = await supabase
         .from('club_application_submissions')
         .insert([{ 
           club_id: id, 
-          user_id: currentUserId 
-        }])
-        .select()
-        .single(); // 생성된 ID 받기
+          user_id: currentUserId,
+          submission_data: answers // { "q1": "답변", ... } 형태의 JSON 객체
+        }]);
 
       if (subError) throw subError;
-      
-      const submissionId = submissionData.id;
-
-      // (3) 상세 답변(Answers) 저장
-      if (questions.length > 0) {
-        const answerRows = questions.map(q => ({
-          submission_id: submissionId, // 위에서 만든 제출 ID
-          question_id: q.id,           // 질문 ID
-          answer: answers[q.id]
-        }));
-        
-        const { error: ansError } = await supabase
-          .from('club_application_answers')
-          .insert(answerRows);
-          
-        if (ansError) throw ansError;
-      }
 
       alert('가입 신청이 완료되었습니다! 승인을 기다려주세요.');
       setOpenJoinDialog(false);
@@ -395,7 +385,7 @@ export default function ClubDetail() {
         </Fade>
       </Container>
 
-      {/* 가입 신청 모달 */}
+      {/* 가입 신청서 모달 */}
       <Dialog open={openJoinDialog} onClose={() => setOpenJoinDialog(false)} maxWidth="sm" fullWidth>
          <DialogTitle sx={{ fontWeight: 'bold' }}>가입 신청서 작성</DialogTitle>
          <DialogContent dividers>
@@ -407,22 +397,30 @@ export default function ClubDetail() {
              </Typography>
            ) : (
              <Stack spacing={3} sx={{ mt: 1 }}>
-               {questions.map((q, idx) => (
-                 <Box key={q.id}>
-                   <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                     Q{idx + 1}. {q.question || q.content || '질문'}
-                   </Typography>
-                   <TextField
-                     fullWidth
-                     multiline
-                     rows={3}
-                     variant="outlined"
-                     placeholder="답변을 입력해주세요"
-                     value={answers[q.id] || ''}
-                     onChange={(e) => setAnswers({...answers, [q.id]: e.target.value})}
-                   />
-                 </Box>
-               ))}
+               {/* 질문 목록 렌더링 */}
+               {questions.map((q, idx) => {
+                 // JSON 객체 안의 질문 텍스트 찾기 (question, text, content 등등)
+                 const questionText = q.question || q.text || q.content || `질문 ${idx + 1}`;
+                 // 답변 Key: 질문에 id가 있으면 id, 없으면 index 사용
+                 const answerKey = q.id || idx;
+
+                 return (
+                   <Box key={answerKey}>
+                     <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+                       Q{idx + 1}. {questionText}
+                     </Typography>
+                     <TextField
+                       fullWidth
+                       multiline
+                       rows={3}
+                       variant="outlined"
+                       placeholder="답변을 입력해주세요"
+                       value={answers[answerKey] || ''}
+                       onChange={(e) => setAnswers({...answers, [answerKey]: e.target.value})}
+                     />
+                   </Box>
+                 )
+               })}
              </Stack>
            )}
          </DialogContent>
