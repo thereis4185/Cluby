@@ -47,8 +47,8 @@ export default function ClubDetail() {
 
   // --- [State: 가입 신청 관련] ---
   const [openJoinDialog, setOpenJoinDialog] = useState(false)
-  const [questions, setQuestions] = useState([]) // JSON 배열로 저장된 질문들
-  const [answers, setAnswers] = useState({})     // 유저 답변 { "질문ID": "답변" }
+  const [questions, setQuestions] = useState([]) // 질문 양식 (JSON 배열)
+  const [answers, setAnswers] = useState({})     // 유저 답변
   const [loadingQuestions, setLoadingQuestions] = useState(false)
 
   useEffect(() => {
@@ -100,12 +100,12 @@ export default function ClubDetail() {
 
   // --- [Action Handlers] ---
 
-  // 1. 가입 버튼 클릭 시: club_application_forms의 form_structure(JSON) 가져오기
+  // 1. 가입 버튼 클릭 시: 질문 로드
   const handleOpenJoin = async () => {
     if (!currentUserId) return alert('로그인이 필요합니다.');
     
     setLoadingQuestions(true);
-    // [변경] JSON 컬럼(form_structure)이 있는 행을 하나 가져옵니다.
+    // form_structure(JSON) 가져오기
     const { data, error } = await supabase
       .from('club_application_forms')
       .select('form_structure') 
@@ -116,20 +116,21 @@ export default function ClubDetail() {
       console.error(error);
       alert('가입 양식을 불러오는데 실패했습니다.');
     } else {
-      // form_structure가 없으면 빈 배열
-      setQuestions(data?.form_structure || []);
+      // 데이터가 없으면 빈 배열
+      const loadedQuestions = data?.form_structure || [];
+      setQuestions(loadedQuestions);
       setAnswers({}); 
       setOpenJoinDialog(true);
     }
     setLoadingQuestions(false);
   }
 
-  // 2. 가입 신청 최종 제출 (JSON 통째로 저장)
+  // 2. 가입 신청 최종 제출
   const handleSubmitApplication = async () => {
-    // 필수 답변 체크 (질문이 있는데 답변이 비었는지)
-    // 질문 객체 구조에 따라 'id'가 있을 수도, 없을 수도 있으니 index 사용 고려
+    // 답변 필수 체크
+    // 질문 객체에 id가 없으면 인덱스를 키로 사용
     const unanswered = questions.some((q, idx) => {
-      const key = q.id || idx; // 질문에 id가 있으면 쓰고, 없으면 인덱스 사용
+      const key = q.id || idx; 
       return !answers[key] || !answers[key].trim();
     });
     
@@ -147,14 +148,13 @@ export default function ClubDetail() {
       
       if (memberError) throw memberError;
 
-      // (2) 제출 내역(Submission) 생성 + 답변 데이터(JSON) 저장
-      // 별도의 answers 테이블 없이, submission_data 컬럼에 JSON으로 저장
+      // (2) 신청서(Submission) 저장 (답변 JSON 포함)
       const { error: subError } = await supabase
         .from('club_application_submissions')
         .insert([{ 
           club_id: id, 
           user_id: currentUserId,
-          submission_data: answers // { "q1": "답변", ... } 형태의 JSON 객체
+          submission_data: answers // { "0": "답변1", "1": "답변2" } 형태
         }]);
 
       if (subError) throw subError;
@@ -397,12 +397,11 @@ export default function ClubDetail() {
              </Typography>
            ) : (
              <Stack spacing={3} sx={{ mt: 1 }}>
-               {/* 질문 목록 렌더링 */}
+               {/* 질문 렌더링 로직 수정됨 */}
                {questions.map((q, idx) => {
-                 // JSON 객체 안의 질문 텍스트 찾기 (question, text, content 등등)
-                 const questionText = q.question || q.text || q.content || `질문 ${idx + 1}`;
-                 // 답변 Key: 질문에 id가 있으면 id, 없으면 index 사용
-                 const answerKey = q.id || idx;
+                 // JSON에서 질문 내용 찾기 (여러 키 대응)
+                 const questionText = q.question || q.content || q.text || q.title || `질문 ${idx + 1}`;
+                 const answerKey = q.id || idx; // id가 없으면 index 사용
 
                  return (
                    <Box key={answerKey}>

@@ -77,11 +77,12 @@ export default function ClubSettingsTab({ clubId }) {
     setFormQuestions(formQuestions.map(q => q.id === id ? { ...q, [field]: value } : q))
   }
 
+  // [수정됨] UPSERT 적용
   const handleSaveForm = async () => {
     const { error } = await supabase.from('club_application_forms').upsert({ 
       club_id: clubId, 
       form_structure: formQuestions 
-    })
+    }, { onConflict: 'club_id' }) // club_id가 겹치면 업데이트
     
     if (error) alert('양식 저장 실패: ' + error.message)
     else alert('가입 신청서 양식이 저장되었습니다.')
