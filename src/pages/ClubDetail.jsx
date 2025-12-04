@@ -101,12 +101,13 @@ export default function ClubDetail() {
 
   // --- [Action Handlers] ---
 
-  // [수정] 1. 가입 버튼 클릭 시 모달 열기
+  // [수정] 1. 가입 버튼 클릭 시 모달 열기 (club_application_forms 조회)
   const handleOpenJoin = async () => {
     if (!currentUserId) return alert('로그인이 필요합니다.');
     
     setLoadingQuestions(true);
-    const { data, error } = await supabase.from('club_questions').select('*').eq('club_id', id).order('id', { ascending: true });
+    // [변경] club_questions -> club_application_forms
+    const { data, error } = await supabase.from('club_application_forms').select('*').eq('club_id', id).order('id', { ascending: true });
 
     if (error) {
       console.error(error);
@@ -381,7 +382,8 @@ export default function ClubDetail() {
                {questions.map((q, idx) => (
                  <Box key={q.id}>
                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                     Q{idx + 1}. {q.content || q.question_text}
+                     {/* [변경] club_application_forms의 질문 컬럼 확인 (question 또는 content 등) */}
+                     Q{idx + 1}. {q.question || q.content || q.question_text || '질문 내용 없음'}
                    </Typography>
                    <TextField
                      fullWidth
