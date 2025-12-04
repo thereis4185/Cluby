@@ -18,7 +18,6 @@ import ChatTab from '../features/ChatTab'
 
 import { 
   Tabs, Tab, Box, Typography, Container, Stack, Chip, Button, Fade, Avatar,
-  // [수정] 모달 관련 컴포넌트 추가
   Dialog, DialogTitle, DialogContent, DialogActions, TextField 
 } from '@mui/material'
 import { 
@@ -46,10 +45,10 @@ export default function ClubDetail() {
   const [targetGroupId, setTargetGroupId] = useState(null) 
   const [targetPostId, setTargetPostId] = useState(null)   
 
-  // --- [State: 가입 신청 관련 (NEW)] ---
+  // --- [State: 가입 신청 관련] ---
   const [openJoinDialog, setOpenJoinDialog] = useState(false)
-  const [questions, setQuestions] = useState([])
-  const [answers, setAnswers] = useState({})
+  const [questions, setQuestions] = useState([]) // 질문 양식
+  const [answers, setAnswers] = useState({})     // 유저 답변
   const [loadingQuestions, setLoadingQuestions] = useState(false)
 
   useEffect(() => {
@@ -101,13 +100,16 @@ export default function ClubDetail() {
 
   // --- [Action Handlers] ---
 
-  // [수정] 1. 가입 버튼 클릭 시 모달 열기 (club_application_forms 조회)
+  // 1. 가입 버튼 클릭 시: club_application_forms 조회
   const handleOpenJoin = async () => {
     if (!currentUserId) return alert('로그인이 필요합니다.');
     
     setLoadingQuestions(true);
-    // [변경] club_questions -> club_application_forms
-    const { data, error } = await supabase.from('club_application_forms').select('*').eq('club_id', id).order('id', { ascending: true });
+    const { data, error } = await supabase
+      .from('club_application_forms') // 올바른 테이블명
+      .select('*')
+      .eq('club_id', id)
+      .order('id', { ascending: true });
 
     if (error) {
       console.error(error);
@@ -120,25 +122,50 @@ export default function ClubDetail() {
     setLoadingQuestions(false);
   }
 
-  // [수정] 2. 가입 신청 최종 제출
+  // 2. 가입 신청 최종 제출
   const handleSubmitApplication = async () => {
-    // 답변 필수 체크
+    // 필수 답변 체크
     const unanswered = questions.some(q => !answers[q.id] || !answers[q.id].trim());
     if (unanswered) return alert('모든 질문에 답변해주세요.');
 
     if (!confirm('작성한 내용으로 가입 신청하시겠습니까?')) return;
 
     try {
-      // 1. 멤버 테이블에 pending 추가
-      const { error: memberError } = await supabase.from('club_members').insert([{ user_id: currentUserId, club_id: id, status: 'pending' }]);
+      // (1) 멤버 테이블에 'pending' 상태로 추가
+      const { error: memberError } = await supabase.from('club_members').insert([{ 
+        user_id: currentUserId, 
+        club_id: id, 
+        status: 'pending' 
+      }]);
+      
       if (memberError) throw memberError;
 
-      // 2. 답변 저장
+      // (2) 제출 내역(Submission) 생성
+      const { data: submissionData, error: subError } = await supabase
+        .from('club_application_submissions')
+        .insert([{ 
+          club_id: id, 
+          user_id: currentUserId 
+        }])
+        .select()
+        .single(); // 생성된 ID 받기
+
+      if (subError) throw subError;
+      
+      const submissionId = submissionData.id;
+
+      // (3) 상세 답변(Answers) 저장
       if (questions.length > 0) {
         const answerRows = questions.map(q => ({
-          club_id: id, user_id: currentUserId, question_id: q.id, answer: answers[q.id]
+          submission_id: submissionId, // 위에서 만든 제출 ID
+          question_id: q.id,           // 질문 ID
+          answer: answers[q.id]
         }));
-        const { error: ansError } = await supabase.from('club_application_answers').insert(answerRows);
+        
+        const { error: ansError } = await supabase
+          .from('club_application_answers')
+          .insert(answerRows);
+          
         if (ansError) throw ansError;
       }
 
@@ -147,6 +174,7 @@ export default function ClubDetail() {
       checkPermission(currentUserId);
 
     } catch (err) {
+      console.error(err);
       alert('신청 실패: ' + err.message);
     }
   }
@@ -367,7 +395,7 @@ export default function ClubDetail() {
         </Fade>
       </Container>
 
-      {/* [수정] 가입 신청서 모달 */}
+      {/* 가입 신청 모달 */}
       <Dialog open={openJoinDialog} onClose={() => setOpenJoinDialog(false)} maxWidth="sm" fullWidth>
          <DialogTitle sx={{ fontWeight: 'bold' }}>가입 신청서 작성</DialogTitle>
          <DialogContent dividers>
@@ -382,8 +410,7 @@ export default function ClubDetail() {
                {questions.map((q, idx) => (
                  <Box key={q.id}>
                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                     {/* [변경] club_application_forms의 질문 컬럼 확인 (question 또는 content 등) */}
-                     Q{idx + 1}. {q.question || q.content || q.question_text || '질문 내용 없음'}
+                     Q{idx + 1}. {q.question || q.content || '질문'}
                    </Typography>
                    <TextField
                      fullWidth
