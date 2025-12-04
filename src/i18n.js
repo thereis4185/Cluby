@@ -451,7 +451,7 @@ const resources = {
           calendar: "カレンダー",
           archive: "資料室",
           photo: "アルバム",
-          group: "小グループ",
+          group: "グループ",
           chat: "チャット",
           group_manage: "グループ管理",
           member_manage: "メンバー管理",
