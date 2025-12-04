@@ -85,6 +85,7 @@ const resources = {
         role_member: "멤버",
         status_pending: "승인 대기",
         enter_club: "동아리 입장",
+        // [추가된 부분] 기본 소개글
         default_intro_title: "환영합니다!",
         default_intro_content: "동아리 소개글을 자유롭게 작성해주세요."
       },
@@ -139,7 +140,6 @@ const resources = {
         alert_answer_required: "모든 필수 질문에 답변해주세요.",
         confirm_submit: "작성한 내용으로 가입 신청하시겠습니까?",
         msg_submitted: "가입 신청이 완료되었습니다! 승인을 기다려주세요.",
-        // 홈 탭
         home_tab: {
           edit_intro: "소개글 수정",
           label_headline: "헤드라인 (짧은 소개)",
@@ -150,7 +150,6 @@ const resources = {
           content_fallback: "아직 등록된 소개글이 없습니다.",
           save_fail: "저장 실패"
         },
-        // 설정 탭
         settings: {
           basic_info_title: "기본 정보 설정",
           basic_info_desc: "홈 화면과 검색 결과에 노출되는 정보를 수정합니다.",
@@ -418,6 +417,7 @@ const resources = {
         role_member: "メンバー",
         status_pending: "承認待ち",
         enter_club: "サークルに入場",
+        // [추가된 부분] 기본 소개글
         default_intro_title: "ようこそ！",
         default_intro_content: "サークルの紹介文を自由に作成してください。"
       },
@@ -455,7 +455,7 @@ const resources = {
           calendar: "カレンダー",
           archive: "資料室",
           photo: "アルバム",
-          group: "グループ",
+          group: "小グループ",
           chat: "チャット",
           group_manage: "グループ管理",
           member_manage: "メンバー管理",
