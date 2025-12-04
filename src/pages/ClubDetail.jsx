@@ -8,8 +8,8 @@ import ClubHomeTab from '../features/ClubHomeTab'
 import GroupTab from '../features/GroupTab'
 import GroupManageTab from '../features/GroupManageTab'
 import BoardTab from '../features/BoardTab'
-import ArchiveTab from '../features/ArchiveTab' // [복구] 기존 자료실
-import PhotoArchiveTab from '../features/PhotoArchiveTab' // [추가] 사진첩
+import ArchiveTab from '../features/ArchiveTab' 
+import PhotoArchiveTab from '../features/PhotoArchiveTab' 
 import LedgerTab from '../features/LedgerTab'
 import CalendarTab from '../features/CalendarTab'
 import MemberManageTab from '../features/MemberManageTab'
@@ -17,7 +17,9 @@ import ClubSettingsTab from '../features/ClubSettingsTab'
 import ChatTab from '../features/ChatTab'
 
 import { 
-  Tabs, Tab, Box, Typography, Container, Stack, Chip, Button, Fade, Avatar 
+  Tabs, Tab, Box, Typography, Container, Stack, Chip, Button, Fade, Avatar,
+  // [수정] 모달 관련 컴포넌트 추가
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField 
 } from '@mui/material'
 import { 
   Verified, PhotoCamera, Settings 
@@ -43,6 +45,12 @@ export default function ClubDetail() {
   const [activeTab, setActiveTab] = useState('home')
   const [targetGroupId, setTargetGroupId] = useState(null) 
   const [targetPostId, setTargetPostId] = useState(null)   
+
+  // --- [State: 가입 신청 관련 (NEW)] ---
+  const [openJoinDialog, setOpenJoinDialog] = useState(false)
+  const [questions, setQuestions] = useState([])
+  const [answers, setAnswers] = useState({})
+  const [loadingQuestions, setLoadingQuestions] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -92,11 +100,54 @@ export default function ClubDetail() {
   }
 
   // --- [Action Handlers] ---
-  const handleJoin = async () => {
-    if (!confirm('가입 신청하시겠습니까?')) return
-    const { error } = await supabase.from('club_members').insert([{ user_id: currentUserId, club_id: id, status: 'pending' }])
-    if (error) alert('오류: ' + error.message)
-    else { alert('신청 완료! 승인을 기다려주세요.'); checkPermission(currentUserId); }
+
+  // [수정] 1. 가입 버튼 클릭 시 모달 열기
+  const handleOpenJoin = async () => {
+    if (!currentUserId) return alert('로그인이 필요합니다.');
+    
+    setLoadingQuestions(true);
+    const { data, error } = await supabase.from('club_questions').select('*').eq('club_id', id).order('id', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert('가입 양식을 불러오는데 실패했습니다.');
+    } else {
+      setQuestions(data || []);
+      setAnswers({}); 
+      setOpenJoinDialog(true);
+    }
+    setLoadingQuestions(false);
+  }
+
+  // [수정] 2. 가입 신청 최종 제출
+  const handleSubmitApplication = async () => {
+    // 답변 필수 체크
+    const unanswered = questions.some(q => !answers[q.id] || !answers[q.id].trim());
+    if (unanswered) return alert('모든 질문에 답변해주세요.');
+
+    if (!confirm('작성한 내용으로 가입 신청하시겠습니까?')) return;
+
+    try {
+      // 1. 멤버 테이블에 pending 추가
+      const { error: memberError } = await supabase.from('club_members').insert([{ user_id: currentUserId, club_id: id, status: 'pending' }]);
+      if (memberError) throw memberError;
+
+      // 2. 답변 저장
+      if (questions.length > 0) {
+        const answerRows = questions.map(q => ({
+          club_id: id, user_id: currentUserId, question_id: q.id, answer: answers[q.id]
+        }));
+        const { error: ansError } = await supabase.from('club_application_answers').insert(answerRows);
+        if (ansError) throw ansError;
+      }
+
+      alert('가입 신청이 완료되었습니다! 승인을 기다려주세요.');
+      setOpenJoinDialog(false);
+      checkPermission(currentUserId);
+
+    } catch (err) {
+      alert('신청 실패: ' + err.message);
+    }
   }
 
   const handleCoverUpload = async (e) => {
@@ -164,9 +215,8 @@ export default function ClubDetail() {
       {isMember && <Tab label="게시판" value="board" />}
       {isMember && <Tab label="캘린더" value="calendar" />}
       
-      {/* --- 자료실 & 사진첩 구분 --- */}
-      {isMember && <Tab label="자료실" value="archive" />} {/* 기존 자료실 */}
-      {isMember && <Tab label="사진첩" value="photo" />}   {/* 신규 사진첩 */}
+      {isMember && <Tab label="자료실" value="archive" />} 
+      {isMember && <Tab label="사진첩" value="photo" />}   
       
       {isMember && <Tab label="그룹" value="my_group" />}
       {isMember && <Tab label="채팅" value="chat" />}
@@ -221,7 +271,7 @@ export default function ClubDetail() {
             
             <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
               {!myRole && myRole !== 'pending' && (
-                <Button variant="contained" size="large" onClick={handleJoin} sx={{ bgcolor: 'white', color: 'black', fontWeight: 'bold', px: 4, py: 1.5, '&:hover':{bgcolor:'#f5f5f5'} }}>
+                <Button variant="contained" size="large" onClick={handleOpenJoin} sx={{ bgcolor: 'white', color: 'black', fontWeight: 'bold', px: 4, py: 1.5, '&:hover':{bgcolor:'#f5f5f5'} }}>
                   가입 신청하기
                 </Button>
               )}
@@ -284,8 +334,6 @@ export default function ClubDetail() {
               />
             )}
 
-            {/* --- 탭 렌더링 구분 --- */}
-            {/* 1. 자료실 (기존) */}
             {isMember && activeTab === 'archive' && (
               <ArchiveTab 
                 clubId={id} 
@@ -293,7 +341,6 @@ export default function ClubDetail() {
               />
             )}
 
-            {/* 2. 사진첩 (신규) */}
             {isMember && activeTab === 'photo' && (
               <PhotoArchiveTab 
                 clubId={id} 
@@ -318,6 +365,45 @@ export default function ClubDetail() {
           </Box>
         </Fade>
       </Container>
+
+      {/* [수정] 가입 신청서 모달 */}
+      <Dialog open={openJoinDialog} onClose={() => setOpenJoinDialog(false)} maxWidth="sm" fullWidth>
+         <DialogTitle sx={{ fontWeight: 'bold' }}>가입 신청서 작성</DialogTitle>
+         <DialogContent dividers>
+           {loadingQuestions ? (
+             <Typography sx={{ p: 2, textAlign: 'center' }}>양식을 불러오는 중...</Typography>
+           ) : questions.length === 0 ? (
+             <Typography sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+               별도의 가입 양식이 없습니다.<br/>바로 신청하시겠습니까?
+             </Typography>
+           ) : (
+             <Stack spacing={3} sx={{ mt: 1 }}>
+               {questions.map((q, idx) => (
+                 <Box key={q.id}>
+                   <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+                     Q{idx + 1}. {q.content || q.question_text}
+                   </Typography>
+                   <TextField
+                     fullWidth
+                     multiline
+                     rows={3}
+                     variant="outlined"
+                     placeholder="답변을 입력해주세요"
+                     value={answers[q.id] || ''}
+                     onChange={(e) => setAnswers({...answers, [q.id]: e.target.value})}
+                   />
+                 </Box>
+               ))}
+             </Stack>
+           )}
+         </DialogContent>
+         <DialogActions sx={{ p: 2 }}>
+           <Button onClick={() => setOpenJoinDialog(false)} color="inherit">취소</Button>
+           <Button onClick={handleSubmitApplication} variant="contained" disableElevation>
+             제출하기
+           </Button>
+         </DialogActions>
+       </Dialog>
     </Layout>
   )
 }
