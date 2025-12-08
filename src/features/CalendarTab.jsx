@@ -9,7 +9,7 @@ import 'react-calendar/dist/Calendar.css'
 import { format } from 'date-fns'
 import { ko, ja } from 'date-fns/locale' 
 import { 
-  LockClock, Delete, CalendarMonth, AddCircleOutline, LocationOn, 
+  Delete, CalendarMonth, AddCircleOutline, LocationOn, 
   ArrowForward, AccessTime
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next' 
@@ -19,8 +19,11 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   const [date, setDate] = useState(new Date())
   const [activityEvents, setActivityEvents] = useState([]) 
   const [adminEvents, setAdminEvents] = useState([]) 
+  
+  // [수정] 운영진 일정 입력 State 분리
   const [schedTitle, setSchedTitle] = useState('')
-  const [schedTime, setSchedTime] = useState('')
+  const [schedTime, setSchedTime] = useState('')     // 시간
+  const [schedLocation, setSchedLocation] = useState('') // 장소
 
   const dateLocale = i18n.language === 'ja' ? ja : ko;
 
@@ -38,7 +41,6 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
       myGroupIds = myGroups?.map(g => g.group_id) || []
     }
 
-    // [수정] activity_time 추가 조회
     const { data } = await supabase.from('posts')
       .select(`id, title, activity_date, activity_time, location, group_id, groups(name)`)
       .eq('club_id', clubId)
@@ -55,6 +57,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   }
 
   const fetchAdminSchedules = async () => {
+    // [수정] start_time 포함 조회
     const { data } = await supabase.from('schedules').select('*').eq('club_id', clubId)
     if (data) setAdminEvents(data)
   }
@@ -62,11 +65,21 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   const handleAddAdminSchedule = async () => {
     if (!schedTitle) return alert(t('calendar.alert_input_title'))
     const dateStr = format(date, 'yyyy-MM-dd')
+    
+    // [수정] start_time, location 분리 저장
     const { error } = await supabase.from('schedules').insert([{
-      club_id: clubId, title: schedTitle, start_date: dateStr, location: schedTime
+      club_id: clubId, 
+      title: schedTitle, 
+      start_date: dateStr, 
+      start_time: schedTime, 
+      location: schedLocation
     }])
+
     if (error) alert('Error: ' + error.message)
-    else { setSchedTitle(''); setSchedTime(''); fetchAdminSchedules() }
+    else { 
+      setSchedTitle(''); setSchedTime(''); setSchedLocation(''); 
+      fetchAdminSchedules() 
+    }
   }
 
   const handleDeleteAdminSchedule = async (id) => {
@@ -83,17 +96,23 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   const selectedDateStr = format(date, 'yyyy-MM-dd')
   const selectedDateDisplay = format(date, 'M/d (eee)', { locale: dateLocale })
 
-  // [수정] 시간순 정렬 로직 추가
+  // 1. 활동 공지 정렬 (시간순)
   const todayActivities = activityEvents
     .filter(e => isSameDay(e.activity_date, selectedDateStr))
     .sort((a, b) => {
-       // 시간이 없으면 뒤로, 있으면 시간순 비교
        if (!a.activity_time) return 1;
        if (!b.activity_time) return -1;
        return a.activity_time.localeCompare(b.activity_time);
     })
 
-  const todayAdminSchedules = adminEvents.filter(e => isSameDay(e.start_date, selectedDateStr))
+  // 2. [수정] 운영진 일정 정렬 (시간순)
+  const todayAdminSchedules = adminEvents
+    .filter(e => isSameDay(e.start_date, selectedDateStr))
+    .sort((a, b) => {
+       if (!a.start_time) return 1;
+       if (!b.start_time) return -1;
+       return a.start_time.localeCompare(b.start_time);
+    })
 
   const tileContent = ({ date, view }) => {
     if (view === 'month') {
@@ -184,7 +203,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                 <CardContent sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pb: '16px !important' }}>
                   <Box>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                      {/* [추가] 시간 배지 */}
+                      {/* 시간 배지 */}
                       {ev.activity_time && (
                          <Chip label={ev.activity_time} size="small" icon={<AccessTime sx={{fontSize:12}}/>} sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} />
                       )}
@@ -203,13 +222,13 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                         {ev.title}
                     </Typography>
 
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      {ev.location && (
-                        <Typography variant="body2" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
-                          <LocationOn sx={{ fontSize: 14 }} /> {ev.location}
-                        </Typography>
-                      )}
-                    </Stack>
+                    {ev.location && (
+                       <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
+                            <LocationOn sx={{ fontSize: 14 }} /> {ev.location}
+                          </Typography>
+                       </Stack>
+                    )}
                   </Box>
 
                   <IconButton 
@@ -224,7 +243,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
             </Fade>
           ))}
 
-          {/* 운영진 일정 카드 */}
+          {/* [수정] 운영진 일정 카드 (시간, 장소 분리 표시) */}
           {isAdmin && todayAdminSchedules.map(ev => (
             <Fade in key={ev.id}>
               <Card 
@@ -237,12 +256,18 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                 <CardContent sx={{ p: 2, display:'flex', justifyContent:'space-between', alignItems:'flex-start', pb: '16px !important' }}>
                   <Box>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                       {/* 시간 배지 */}
+                      {ev.start_time && (
+                         <Chip label={ev.start_time} size="small" icon={<AccessTime sx={{fontSize:12}}/>} sx={{ bgcolor: '#fff1f2', color: '#be123c', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} />
+                      )}
                       <Chip label={t('calendar.badge_admin')} size="small" sx={{ bgcolor: '#fce7f3', color: '#be185d', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} /> 
-                      <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#be185d' }}>{ev.title}</Typography>
                     </Stack>
+                    
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#be185d', mt: 0.5 }}>{ev.title}</Typography>
+                    
                     {ev.location && (
-                      <Typography variant="body2" sx={{ color: '#be185d', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, fontSize: '0.85rem' }}>
-                        {ev.location}
+                      <Typography variant="body2" sx={{ color: '#be185d', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
+                        <LocationOn sx={{ fontSize: 14 }} /> {ev.location}
                       </Typography>
                     )}
                   </Box>
@@ -255,27 +280,39 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
           ))}
         </Stack>
 
-        {/* 운영진 일정 추가 폼 (기존과 동일) */}
+        {/* [수정] 운영진 일정 추가 폼 (시간/장소 분리 입력) */}
         {isAdmin && (
           <Box sx={{ mt: 2, pt: 2, borderTop: '2px dashed #e2e8f0', flexShrink: 0 }}>
              <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" sx={{ mb: 1.5, display:'flex', alignItems:'center', gap:1 }}>
                {t('calendar.add_admin_schedule')} 
              </Typography>
-             <Stack direction="row" spacing={1}>
+             
+             {/* 1열: 제목 */}
+             <TextField 
+                size="small" 
+                placeholder={t('calendar.placeholder_title')} 
+                value={schedTitle} 
+                onChange={e => setSchedTitle(e.target.value)} 
+                fullWidth 
+                sx={{ bgcolor:'white', mb: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
+              />
+              
+              {/* 2열: 시간, 장소, 추가버튼 */}
+              <Stack direction="row" spacing={1}>
                 <TextField 
                   size="small" 
-                  placeholder={t('calendar.placeholder_title')} 
-                  value={schedTitle} 
-                  onChange={e => setSchedTitle(e.target.value)} 
-                  fullWidth 
-                  sx={{ bgcolor:'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
+                  type="time" // 시간 입력 전용
+                  value={schedTime} 
+                  onChange={e => setSchedTime(e.target.value)} 
+                  sx={{ width: '130px', bgcolor:'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
                 />
                 <TextField 
                   size="small" 
-                  placeholder={t('calendar.placeholder_time')} 
-                  value={schedTime} 
-                  onChange={e => setSchedTime(e.target.value)} 
-                  sx={{ width: '40%', bgcolor:'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
+                  placeholder={t('calendar.placeholder_time')} // 장소 입력 (placeholder 재활용하거나 '장소'로 변경)
+                  value={schedLocation} 
+                  onChange={e => setSchedLocation(e.target.value)} 
+                  fullWidth
+                  sx={{ bgcolor:'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
                 />
                 <IconButton 
                   color="primary" 
