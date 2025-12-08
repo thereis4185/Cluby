@@ -56,12 +56,12 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   }
 
   const fetchAdminSchedules = async () => {
-    // [수정] DB에서 가져올 때도 날짜/시간 순으로 정렬
+    // DB에서 가져올 때 1차 정렬
     const { data } = await supabase.from('schedules')
       .select('*')
       .eq('club_id', clubId)
       .order('start_date', { ascending: true })
-      .order('start_time', { ascending: true }) // 시간순 정렬 보장
+      .order('start_time', { ascending: true }) 
     
     if (data) setAdminEvents(data)
   }
@@ -103,19 +103,30 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   const todayActivities = activityEvents
     .filter(e => isSameDay(e.activity_date, selectedDateStr))
     .sort((a, b) => {
-       if (!a.activity_time) return 1;
-       if (!b.activity_time) return -1;
-       return a.activity_time.localeCompare(b.activity_time);
+       const timeA = a.activity_time || '';
+       const timeB = b.activity_time || '';
+       if (!timeA && !timeB) return 0;
+       if (!timeA) return 1; // 시간 없으면 뒤로
+       if (!timeB) return -1;
+       return timeA.localeCompare(timeB);
     })
 
-  // 2. [수정] 운영진 일정 정렬 (시간순) - 로직 보강
+  // 2. [수정] 운영진 일정 정렬 로직 강화
   const todayAdminSchedules = adminEvents
     .filter(e => isSameDay(e.start_date, selectedDateStr))
     .sort((a, b) => {
-       // 시간이 없는 경우(null/empty)는 맨 뒤로 보냄
-       const timeA = a.start_time || '23:59'
-       const timeB = b.start_time || '23:59'
-       return timeA.localeCompare(timeB)
+       // null이나 빈 문자열 체크를 확실하게 처리
+       const timeA = a.start_time || '';
+       const timeB = b.start_time || '';
+
+       // 둘 다 시간이 없으면 등록순(ID순) 유지
+       if (!timeA && !timeB) return a.id - b.id;
+       // 시간이 없는 일정은 맨 아래로 보냄
+       if (!timeA) return 1;
+       if (!timeB) return -1;
+
+       // 시간 문자열 비교 (HH:mm 형식은 문자열 비교로 정확히 정렬됨)
+       return timeA.localeCompare(timeB);
     })
 
   const tileContent = ({ date, view }) => {
@@ -269,7 +280,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                     <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#be185d', mt: 0.5 }}>{ev.title}</Typography>
                     
                     {ev.location && (
-                      <Typography variant="body2" sx={{ color: '#be185d', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, fontSize: '0.85rem' }}>
+                      <Typography variant="body2" sx={{ color: '#be185d', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
                         <LocationOn sx={{ fontSize: 14 }} /> {ev.location}
                       </Typography>
                     )}
@@ -283,7 +294,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
           ))}
         </Stack>
 
-        {/* 운영진 일정 추가 폼 (하단 고정) */}
+        {/* 운영진 일정 추가 폼 */}
         {isAdmin && (
           <Box sx={{ mt: 2, pt: 2, borderTop: '2px dashed #e2e8f0', flexShrink: 0 }}>
              <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" sx={{ mb: 1.5, display:'flex', alignItems:'center', gap:1 }}>
@@ -300,9 +311,8 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                 sx={{ bgcolor:'white', mb: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
               />
               
-              {/* 2열: 시간, 장소, 추가버튼 */}
+              {/* 2열: 시간, 장소, 추가버튼 (50:50 비율) */}
               <Stack direction="row" spacing={1}>
-                {/* [수정] flex: 1을 주어 시간과 장소 너비를 50:50으로 맞춤 */}
                 <TextField 
                   size="small" 
                   type="time" 
@@ -312,7 +322,7 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                 />
                 <TextField 
                   size="small" 
-                  placeholder={t('calendar.placeholder_time')} // 장소 입력
+                  placeholder={t('calendar.placeholder_time')} // 장소
                   value={schedLocation} 
                   onChange={e => setSchedLocation(e.target.value)} 
                   sx={{ flex: 1, bgcolor:'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
