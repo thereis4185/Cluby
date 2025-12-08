@@ -11,7 +11,7 @@ import {
 import { 
   Edit, Event, Delete, ExpandMore, Description, Image as ImageIcon, 
   FilterList, Close, Send, Comment as CommentIcon, HowToVote, LocationOn,
-  AddCircleOutline, RemoveCircleOutline, Visibility, Person
+  AddCircleOutline, RemoveCircleOutline, Visibility, Person, AccessTime // [추가] 시계 아이콘
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 
@@ -28,7 +28,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const POSTS_PER_PAGE = 10
   const [expandedPanel, setExpandedPanel] = useState(initialPostId || false)
   
-  // 글쓰기 관련 State
+  // 글쓰기 State
   const [openWrite, setOpenWrite] = useState(false)
   const [writeTargetId, setWriteTargetId] = useState('') 
   const [title, setTitle] = useState('')
@@ -36,16 +36,19 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const [allowComments, setAllowComments] = useState(true)
   const [postType, setPostType] = useState('general') 
   const [activityDate, setActivityDate] = useState('')
-  const [location, setLocation] = useState('')
+  
+  // [수정] 장소와 시간 분리
+  const [location, setLocation] = useState('') 
+  const [activityTime, setActivityTime] = useState('') // [NEW] 시간 State
+
   const [imageFiles, setImageFiles] = useState([]) 
   const [uploading, setUploading] = useState(false)
   
-  // 투표 관련 State
+  // 투표 State
   const [voteOptions, setVoteOptions] = useState(['참여', '불참']) 
   const [newVoteOption, setNewVoteOption] = useState('')
   const [votePublic, setVotePublic] = useState(false) 
 
-  // 투표자 명단 보기 모달 State
   const [openVoters, setOpenVoters] = useState(false)
   const [selectedVotePost, setSelectedVotePost] = useState(null) 
 
@@ -69,6 +72,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   }, [groups, groupMembers, isAdmin, myRole, currentUserId])
 
   const fetchData = async () => {
+    // [수정] activity_time 컬럼 추가 조회
     const { data: pData, error: pError } = await supabase.from('posts')
       .select(`*, profiles!posts_author_id_fkey(username, avatar_url), groups(name)`)
       .eq('club_id', clubId)
@@ -142,6 +146,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
         group_id: finalGroupId, 
         activity_date: postType === 'activity' ? activityDate : null, 
         location: postType === 'activity' ? location : null, 
+        activity_time: postType === 'activity' ? activityTime : null, // [NEW] 시간 저장
         image_url: publicUrls,
         allow_comments: allowComments,
         vote_options: postType === 'activity' ? voteOptions : null,
@@ -158,7 +163,8 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   }
 
   const handleCloseWrite = () => { 
-    setOpenWrite(false); setTitle(''); setContent(''); setActivityDate(''); setLocation('');
+    setOpenWrite(false); setTitle(''); setContent(''); 
+    setActivityDate(''); setLocation(''); setActivityTime(''); // [수정] 시간 초기화
     setImageFiles([]); setPostType('general'); setWriteTargetId(''); 
     setAllowComments(true);
     setVoteOptions(['참여', '불참']); setVotePublic(false);
@@ -195,6 +201,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   return (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, minHeight: '60vh' }}>
       
+      {/* 필터 패널 */}
       <Paper elevation={0} variant="outlined" sx={{ width: { xs: '100%', md: '30%' }, p: 0, borderRadius: 3, bgcolor: 'white', height: 'fit-content', position: { md: 'sticky' }, top: 100, overflow: 'hidden' }}>
         <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><FilterList fontSize="small" color="action" /> {t('board.filter')}</Typography>
@@ -223,7 +230,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
             const myVote = votes.find(v => v.user_id === currentUserId)?.vote_type
             const isMyPost = p.author_id === currentUserId
             const canViewVoters = isAdmin || isMyPost || p.vote_public
-            
             const myComments = comments.filter(c => c.post_id === p.id)
             let displayImages = []; if (Array.isArray(p.image_url)) displayImages = p.image_url; else if (typeof p.image_url === 'string' && p.image_url) displayImages = [p.image_url];
             const options = p.vote_options || ['참여', '지각', '불참']
@@ -262,7 +268,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                   <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
                   <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: '#334151', mb: 3 }}>{p.content}</Typography>
 
-                  {/* [수정] 이미지 표시: 무조건 세로 정렬(Stack), 원본 비율 유지(height: auto) */}
                   {displayImages.length > 0 && (
                     <Stack spacing={2} sx={{ mb: 3 }}>
                         {displayImages.map((url, index) => (
@@ -286,6 +291,13 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                         )}
                       </Box>
                       
+                      {/* [수정] 날짜 및 시간/장소 표시 */}
+                      <Box sx={{ mb: 2, textAlign: 'right' }}>
+                         <Typography variant="caption" display="block" fontWeight="bold" color="#c2410c">📅 {p.activity_date}</Typography>
+                         {p.activity_time && <Typography variant="caption" display="block" fontWeight="bold" color="#c2410c">⏰ {p.activity_time}</Typography>}
+                         {p.location && <Typography variant="caption" display="block" color="#c2410c">📍 {p.location}</Typography>}
+                      </Box>
+
                       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
                         {options.map((opt) => {
                           const count = votes.filter(v => v.vote_type === opt).length
@@ -360,7 +372,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
               <ToggleButton value="activity"><Event sx={{mr:1}}/> {t('board.type_activity')}</ToggleButton>
             </ToggleButtonGroup>
 
-            {/* 사진 업로드 (공통) */}
             <Box>
                 <Button component="label" variant="outlined" startIcon={<ImageIcon />} fullWidth sx={{ height: 56, borderStyle: 'dashed', borderRadius: 2, color: 'text.secondary', borderColor: '#cbd5e1', textTransform: 'none' }}>
                   {t('board.add_photos')}
@@ -381,11 +392,25 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
             {postType === 'activity' && (
               <>
                 <Stack direction="row" spacing={2}>
-                  <TextField type="date" label={t('board.label_date')} InputLabelProps={{ shrink: true }} fullWidth value={activityDate} onChange={e => setActivityDate(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                  <TextField label={t('board.label_location')} placeholder={t('board.placeholder_location')} fullWidth value={location} onChange={e => setLocation(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  {/* [수정] 날짜, 시간 입력 분리 */}
+                  <TextField 
+                    type="date" label={t('board.label_date')} InputLabelProps={{ shrink: true }} 
+                    fullWidth value={activityDate} onChange={e => setActivityDate(e.target.value)} 
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
+                  />
+                  <TextField 
+                    type="time" label={t('calendar.placeholder_time')} InputLabelProps={{ shrink: true }} 
+                    fullWidth value={activityTime} onChange={e => setActivityTime(e.target.value)} 
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
+                  />
                 </Stack>
+                {/* 장소 입력 */}
+                <TextField 
+                  label={t('board.label_location')} placeholder={t('board.placeholder_location')} 
+                  fullWidth value={location} onChange={e => setLocation(e.target.value)} 
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
+                />
 
-                {/* 투표 옵션 설정 */}
                 <Box sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>{t('board.label_vote_options')}</Typography>
                    <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
@@ -406,7 +431,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                    </Stack>
                 </Box>
                 
-                {/* 투표 공개 설정 */}
                 <FormControlLabel control={<Switch checked={votePublic} onChange={e => setVotePublic(e.target.checked)} />} label={<Typography variant="body2">{t('board.allow_vote_view')}</Typography>} />
               </>
             )}
@@ -423,7 +447,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
         </DialogActions>
       </Dialog>
 
-      {/* 투표자 명단 확인 모달 */}
       <Dialog open={openVoters} onClose={() => setOpenVoters(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
          <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}>{t('board.vote_result_title')}</DialogTitle>
          <DialogContent sx={{ p: 0 }}>

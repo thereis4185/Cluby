@@ -123,7 +123,7 @@ const resources = {
           calendar: "캘린더",
           archive: "자료실",
           photo: "사진첩",
-          group: "소그룹",
+          group: "그룹",
           chat: "채팅",
           group_manage: "그룹 관리",
           member_manage: "멤버 관리",
@@ -303,7 +303,7 @@ const resources = {
           desc_joined: "이 그룹의 활동 내용을 확인하고 멤버들과 소통해보세요.",
           desc_private: "이 그룹은 멤버에게만 공개된 공간입니다.",
           no_access: "접근 권한 없음",
-          no_joined_groups: "아직 소속된 소그룹이 없습니다."
+          no_joined_groups: "아직 소속된 그룹이 없습니다."
         }
       },
       chat: {
@@ -315,7 +315,7 @@ const resources = {
       },
       chat_page: {
         my_chat: "내 채팅",
-        small_group: "소그룹",
+        small_group: "그룹",
         all: "전체",
         select_room: "채팅방을 선택해주세요."
       },
