@@ -40,14 +40,14 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const [imageFiles, setImageFiles] = useState([]) 
   const [uploading, setUploading] = useState(false)
   
-  // [NEW] 커스텀 투표 관련 State
-  const [voteOptions, setVoteOptions] = useState(['참여', '불참']) // 기본값
+  // 투표 관련 State
+  const [voteOptions, setVoteOptions] = useState(['참여', '불참']) 
   const [newVoteOption, setNewVoteOption] = useState('')
-  const [votePublic, setVotePublic] = useState(false) // 투표 결과 공개 여부
+  const [votePublic, setVotePublic] = useState(false) 
 
-  // [NEW] 투표자 명단 보기 모달 State
+  // 투표자 명단 보기 모달 State
   const [openVoters, setOpenVoters] = useState(false)
-  const [selectedVotePost, setSelectedVotePost] = useState(null) // 현재 보고 있는 게시글 정보
+  const [selectedVotePost, setSelectedVotePost] = useState(null) 
 
   const [snack, setSnack] = useState({ open: false, msg: '', type: 'info' })
 
@@ -79,7 +79,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
     
     const postIds = pData?.map(p => p.id) || []
     if (postIds.length > 0) {
-      // [수정] 투표 데이터 가져올 때 유저 정보도 같이 가져옴 (명단 확인용)
       const { data: vData } = await supabase.from('post_votes')
         .select('*, profiles(username, full_name, avatar_url)')
         .in('post_id', postIds)
@@ -100,7 +99,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const handleFileChange = (e) => setImageFiles(prev => [...prev, ...Array.from(e.target.files)])
   const handleRemoveFile = (idx) => setImageFiles(prev => prev.filter((_, i) => i !== idx))
 
-  // [NEW] 투표 옵션 관리 핸들러
   const handleAddOption = () => {
     if (newVoteOption.trim() && !voteOptions.includes(newVoteOption.trim())) {
       setVoteOptions([...voteOptions, newVoteOption.trim()])
@@ -116,7 +114,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
     if (!writeTargetId && !canWriteAny) return alert(t('board.alert_select_group'))
     if (!title.trim()) return alert(t('board.alert_input_title'))
     if (postType === 'activity' && !activityDate) return alert(t('board.alert_select_date'))
-    if (postType === 'activity' && voteOptions.length < 2) return alert(t('board.alert_vote_options')) // 최소 2개
+    if (postType === 'activity' && voteOptions.length < 2) return alert(t('board.alert_vote_options'))
 
     setUploading(true)
     let publicUrls = []
@@ -146,7 +144,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
         location: postType === 'activity' ? location : null, 
         image_url: publicUrls,
         allow_comments: allowComments,
-        // [NEW] 투표 정보 저장
         vote_options: postType === 'activity' ? voteOptions : null,
         vote_public: postType === 'activity' ? votePublic : false
       }])
@@ -164,15 +161,13 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
     setOpenWrite(false); setTitle(''); setContent(''); setActivityDate(''); setLocation('');
     setImageFiles([]); setPostType('general'); setWriteTargetId(''); 
     setAllowComments(true);
-    setVoteOptions(['참여', '불참']); setVotePublic(false); // 초기화
+    setVoteOptions(['참여', '불참']); setVotePublic(false);
   }
   
   const handleVote = async (postId, option) => { 
-    // [수정] option(텍스트)을 저장
     const { error } = await supabase.from('post_votes').upsert({ 
       post_id: postId, user_id: currentUserId, vote_type: option 
     }, { onConflict: 'post_id, user_id' }); 
-    
     if (error) alert('Error'); else fetchData() 
   }
   
@@ -192,7 +187,6 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const isWriter = isAdmin || myRole === 'staff' || myLeaderGroupIds.length > 0
   const writeTargetOptions = (isAdmin || myRole === 'staff') ? groups : groups.filter(g => myLeaderGroupIds.includes(g.id))
 
-  // [NEW] 투표자 명단 모달 열기
   const handleOpenVoters = (post) => {
     setSelectedVotePost(post)
     setOpenVoters(true)
@@ -228,13 +222,10 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
             const votes = postVotes.filter(v => v.post_id === p.id)
             const myVote = votes.find(v => v.user_id === currentUserId)?.vote_type
             const isMyPost = p.author_id === currentUserId
-            // 열람 권한: 관리자, 작성자, 또는 '멤버 공개' 설정된 경우
             const canViewVoters = isAdmin || isMyPost || p.vote_public
             
             const myComments = comments.filter(c => c.post_id === p.id)
             let displayImages = []; if (Array.isArray(p.image_url)) displayImages = p.image_url; else if (typeof p.image_url === 'string' && p.image_url) displayImages = [p.image_url];
-
-            // [NEW] 투표 옵션 파싱 (DB에 없으면 기본값)
             const options = p.vote_options || ['참여', '지각', '불참']
 
             return (
@@ -271,19 +262,17 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                   <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
                   <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, color: '#334151', mb: 3 }}>{p.content}</Typography>
 
+                  {/* [수정] 이미지 표시: 무조건 세로 정렬(Stack), 원본 비율 유지(height: auto) */}
                   {displayImages.length > 0 && (
-                    <Grid container spacing={1} sx={{ mb: 3 }}>
+                    <Stack spacing={2} sx={{ mb: 3 }}>
                         {displayImages.map((url, index) => (
-                            <Grid key={index} size={{ xs: 12, md: displayImages.length === 1 ? 12 : 6 }}>
-                                <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #e2e8f0', aspectRatio: displayImages.length === 1 ? 'auto' : '1/1', maxHeight: 400 }}>
-                                    <img src={url} alt={`img-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                </Box>
-                            </Grid>
+                            <Box key={index} sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                                <img src={url} alt={`img-${index}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                            </Box>
                         ))}
-                    </Grid>
+                    </Stack>
                   )}
 
-                  {/* [수정] 투표 UI: 커스텀 옵션 렌더링 */}
                   {p.post_type === 'activity' && (
                     <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: 3, bgcolor: '#fff7ed', border: '1px solid #ffedd5' }}>
                       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb: 2 }}>
@@ -353,7 +342,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
         {totalPages > 1 && <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><Pagination count={totalPages} page={page} onChange={(e, v) => setPage(v)} color="primary" shape="rounded"/></Box>}
       </Box>
 
-      {/* [수정] 글쓰기 모달 (사진 업로드, 커스텀 투표, 공개 설정) */}
+      {/* 글쓰기 모달 */}
       <Dialog open={openWrite} onClose={handleCloseWrite} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #f1f5f9' }}>{t('board.write_new_post')}</DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
@@ -371,7 +360,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
               <ToggleButton value="activity"><Event sx={{mr:1}}/> {t('board.type_activity')}</ToggleButton>
             </ToggleButtonGroup>
 
-            {/* [수정] 사진 업로드를 공통 영역으로 이동 (활동글에도 사진 필요하므로) */}
+            {/* 사진 업로드 (공통) */}
             <Box>
                 <Button component="label" variant="outlined" startIcon={<ImageIcon />} fullWidth sx={{ height: 56, borderStyle: 'dashed', borderRadius: 2, color: 'text.secondary', borderColor: '#cbd5e1', textTransform: 'none' }}>
                   {t('board.add_photos')}
@@ -396,7 +385,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                   <TextField label={t('board.label_location')} placeholder={t('board.placeholder_location')} fullWidth value={location} onChange={e => setLocation(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
                 </Stack>
 
-                {/* [NEW] 투표 옵션 설정 */}
+                {/* 투표 옵션 설정 */}
                 <Box sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>{t('board.label_vote_options')}</Typography>
                    <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
@@ -417,7 +406,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                    </Stack>
                 </Box>
                 
-                {/* [NEW] 투표 공개 설정 */}
+                {/* 투표 공개 설정 */}
                 <FormControlLabel control={<Switch checked={votePublic} onChange={e => setVotePublic(e.target.checked)} />} label={<Typography variant="body2">{t('board.allow_vote_view')}</Typography>} />
               </>
             )}
@@ -434,13 +423,13 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
         </DialogActions>
       </Dialog>
 
-      {/* [NEW] 투표자 명단 확인 모달 */}
+      {/* 투표자 명단 확인 모달 */}
       <Dialog open={openVoters} onClose={() => setOpenVoters(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
          <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}>{t('board.vote_result_title')}</DialogTitle>
          <DialogContent sx={{ p: 0 }}>
            {selectedVotePost && (
              <Box>
-               {selectedVotePost.vote_options?.map(opt => {
+               {(selectedVotePost.vote_options || ['참여', '지각', '불참']).map(opt => {
                   const voters = postVotes.filter(v => v.post_id === selectedVotePost.id && v.vote_type === opt)
                   return (
                     <Accordion key={opt} disableGutters elevation={0} defaultExpanded sx={{ borderBottom: '1px solid #f1f5f9' }}>
