@@ -264,7 +264,8 @@ const resources = {
         label_desc: "비고 / 설명",
         alert_name: "물품 이름을 입력해주세요.",
         confirm_rent: "이 물품을 대여하시겠습니까?",
-        confirm_return: "물품을 반납하시겠습니까?"
+        confirm_return: "물품을 반납하시겠습니까?",
+        upload_photo: "물품 사진 등록 (선택)",
       },
       group: {
         manage: {
@@ -617,6 +618,7 @@ const resources = {
         label_desc: "備考 / 説明",
         alert_name: "備品名を入力してください。",
         confirm_rent: "この備品を借りますか？",
+        upload_photo: "備品写真登録 (任意)",
         confirm_return: "備品を返却しますか？"
       },
       group: {
