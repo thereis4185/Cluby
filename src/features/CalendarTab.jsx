@@ -56,12 +56,9 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   }
 
   const fetchAdminSchedules = async () => {
-    // DB에서 가져올 때 1차 정렬
     const { data } = await supabase.from('schedules')
       .select('*')
       .eq('club_id', clubId)
-      .order('start_date', { ascending: true })
-      .order('start_time', { ascending: true }) 
     
     if (data) setAdminEvents(data)
   }
@@ -99,35 +96,23 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
   const selectedDateStr = format(date, 'yyyy-MM-dd')
   const selectedDateDisplay = format(date, 'M/d (eee)', { locale: dateLocale })
 
-  // 1. 활동 공지 정렬 (시간순)
-  const todayActivities = activityEvents
-    .filter(e => isSameDay(e.activity_date, selectedDateStr))
-    .sort((a, b) => {
-       const timeA = a.activity_time || '';
-       const timeB = b.activity_time || '';
-       if (!timeA && !timeB) return 0;
-       if (!timeA) return 1; // 시간 없으면 뒤로
-       if (!timeB) return -1;
-       return timeA.localeCompare(timeB);
-    })
-
-  // 2. [수정] 운영진 일정 정렬 로직 강화
-  const todayAdminSchedules = adminEvents
-    .filter(e => isSameDay(e.start_date, selectedDateStr))
-    .sort((a, b) => {
-       // null이나 빈 문자열 체크를 확실하게 처리
-       const timeA = a.start_time || '';
-       const timeB = b.start_time || '';
-
-       // 둘 다 시간이 없으면 등록순(ID순) 유지
-       if (!timeA && !timeB) return a.id - b.id;
-       // 시간이 없는 일정은 맨 아래로 보냄
-       if (!timeA) return 1;
-       if (!timeB) return -1;
-
-       // 시간 문자열 비교 (HH:mm 형식은 문자열 비교로 정확히 정렬됨)
-       return timeA.localeCompare(timeB);
-    })
+  // [핵심 수정] 두 종류의 일정을 합쳐서 시간순 정렬
+  const sortedAllEvents = [
+    // 1. 활동 공지 데이터 가공
+    ...activityEvents
+      .filter(e => isSameDay(e.activity_date, selectedDateStr))
+      .map(e => ({ ...e, type: 'activity', time: e.activity_time })),
+    
+    // 2. 운영진 일정 데이터 가공
+    ...(isAdmin ? adminEvents : []) // 관리자가 아니면 빈 배열
+      .filter(e => isSameDay(e.start_date, selectedDateStr))
+      .map(e => ({ ...e, type: 'admin', time: e.start_time }))
+  ].sort((a, b) => {
+    // 시간순 정렬 (시간 없으면 맨 뒤로)
+    const timeA = a.time || '23:59';
+    const timeB = b.time || '23:59';
+    return timeA.localeCompare(timeB);
+  });
 
   const tileContent = ({ date, view }) => {
     if (view === 'month') {
@@ -195,103 +180,86 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
             pb: 1 
           }}
         >
-          {todayActivities.length === 0 && todayAdminSchedules.length === 0 && (
+          {sortedAllEvents.length === 0 && (
             <Box sx={{ textAlign: 'center', py: 8, color: '#94a3b8' }}>
               <CalendarMonth sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
               <Typography fontWeight={500}>{t('calendar.no_events')}</Typography> 
             </Box>
           )}
 
-          {/* 활동 카드 */}
-          {todayActivities.map(ev => (
-            <Fade in key={ev.id}>
-              <Card 
-                elevation={0}
-                sx={{ 
-                  borderRadius: 4, 
-                  border: '1px solid #e2e8f0',
-                  bgcolor: 'white',
-                  flexShrink: 0, 
-                  transition: 'border-color 0.2s',
-                }}
-              >
-                <CardContent sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pb: '16px !important' }}>
-                  <Box>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                      {ev.activity_time && (
-                         <Chip label={ev.activity_time} size="small" icon={<AccessTime sx={{fontSize:12}}/>} sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} />
-                      )}
-                      <Chip 
-                        label={ev.group_id ? ev.groups?.name : t('board.general_notice')} 
-                        size="small" 
-                        sx={{ 
-                          bgcolor: ev.group_id ? '#fff7ed' : '#f3e8ff', 
-                          color: ev.group_id ? '#c2410c' : '#6b21a8', 
-                          fontWeight: 'bold', borderRadius: 1.5, height: 20, fontSize: '0.7rem'
-                        }} 
-                      />
-                    </Stack>
-                    
-                    <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#1e293b', mt: 0.5 }}>
-                        {ev.title}
-                    </Typography>
-
-                    {ev.location && (
-                       <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography variant="body2" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
-                            <LocationOn sx={{ fontSize: 14 }} /> {ev.location}
-                          </Typography>
-                       </Stack>
-                    )}
-                  </Box>
-
-                  <IconButton 
-                    size="small" 
-                    onClick={() => onNavigateToBoard(ev.group_id, ev.id)}
-                    sx={{ color: '#94a3b8', '&:hover': { color: '#4F46E5', bgcolor: '#eef2ff' } }}
-                  >
-                    <ArrowForward fontSize="small" />
-                  </IconButton>
-                </CardContent>
-              </Card>
-            </Fade>
-          ))}
-
-          {/* 운영진 일정 카드 */}
-          {isAdmin && todayAdminSchedules.map(ev => (
-            <Fade in key={ev.id}>
-              <Card 
-                elevation={0}
-                sx={{ 
-                  borderRadius: 4, border: '1px solid #fecdd3', bgcolor: '#fff',
-                  flexShrink: 0 
-                }}
-              >
-                <CardContent sx={{ p: 2, display:'flex', justifyContent:'space-between', alignItems:'flex-start', pb: '16px !important' }}>
-                  <Box>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                      {/* [추가] 시간 배지 */}
-                      {ev.start_time && (
-                         <Chip label={ev.start_time} size="small" icon={<AccessTime sx={{fontSize:12}}/>} sx={{ bgcolor: '#fff1f2', color: '#be123c', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} />
-                      )}
-                      <Chip label={t('calendar.badge_admin')} size="small" sx={{ bgcolor: '#fce7f3', color: '#be185d', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} /> 
-                    </Stack>
-                    
-                    <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#be185d', mt: 0.5 }}>{ev.title}</Typography>
-                    
-                    {ev.location && (
-                      <Typography variant="body2" sx={{ color: '#be185d', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
-                        <LocationOn sx={{ fontSize: 14 }} /> {ev.location}
+          {/* 통합된 이벤트 리스트 렌더링 */}
+          {sortedAllEvents.map(ev => {
+            const isActivity = ev.type === 'activity';
+            
+            return (
+              <Fade in key={`${ev.type}-${ev.id}`}>
+                <Card 
+                  elevation={0}
+                  sx={{ 
+                    borderRadius: 4, 
+                    border: '1px solid',
+                    // 활동: 파랑 계열, 운영진: 핑크 계열
+                    borderColor: isActivity ? '#e2e8f0' : '#fecdd3',
+                    bgcolor: 'white',
+                    flexShrink: 0, 
+                    transition: 'border-color 0.2s',
+                  }}
+                >
+                  <CardContent sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pb: '16px !important' }}>
+                    <Box>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                        {/* 시간 배지 */}
+                        {ev.time && (
+                           <Chip label={ev.time} size="small" icon={<AccessTime sx={{fontSize:12}}/>} sx={{ bgcolor: isActivity ? '#eff6ff' : '#fff1f2', color: isActivity ? '#1d4ed8' : '#be123c', fontWeight: 'bold', height: 20, fontSize: '0.7rem' }} />
+                        )}
+                        <Chip 
+                          // 활동이면 그룹명, 운영진이면 '운영진'
+                          label={isActivity ? (ev.group_id ? ev.groups?.name : t('board.general_notice')) : t('calendar.badge_admin')} 
+                          size="small" 
+                          sx={{ 
+                            bgcolor: isActivity ? (ev.group_id ? '#fff7ed' : '#f3e8ff') : '#fce7f3', 
+                            color: isActivity ? (ev.group_id ? '#c2410c' : '#6b21a8') : '#be185d', 
+                            fontWeight: 'bold', borderRadius: 1.5, height: 20, fontSize: '0.7rem'
+                          }} 
+                        />
+                      </Stack>
+                      
+                      <Typography variant="subtitle1" fontWeight="bold" sx={{ color: isActivity ? '#1e293b' : '#be185d', mt: 0.5 }}>
+                          {ev.title}
                       </Typography>
+
+                      {ev.location && (
+                         <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="body2" sx={{ color: isActivity ? '#64748b' : '#be185d', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
+                              <LocationOn sx={{ fontSize: 14 }} /> {ev.location}
+                            </Typography>
+                         </Stack>
+                      )}
+                    </Box>
+
+                    {/* 우측 아이콘 버튼 (활동: 이동, 운영진: 삭제) */}
+                    {isActivity ? (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => onNavigateToBoard(ev.group_id, ev.id)}
+                        sx={{ color: '#94a3b8', '&:hover': { color: '#4F46E5', bgcolor: '#eef2ff' } }}
+                      >
+                        <ArrowForward fontSize="small" />
+                      </IconButton>
+                    ) : (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDeleteAdminSchedule(ev.id)} 
+                        sx={{ color: '#db2777', opacity: 0.7, '&:hover': { opacity: 1, bgcolor: '#fce7f3' } }}
+                      >
+                        <Delete fontSize="small"/>
+                      </IconButton>
                     )}
-                  </Box>
-                  <IconButton size="small" onClick={() => handleDeleteAdminSchedule(ev.id)} sx={{ color: '#db2777', opacity: 0.7, '&:hover': { opacity: 1, bgcolor: '#fce7f3' } }}>
-                    <Delete fontSize="small"/>
-                  </IconButton>
-                </CardContent>
-              </Card>
-            </Fade>
-          ))}
+                  </CardContent>
+                </Card>
+              </Fade>
+            )
+          })}
         </Stack>
 
         {/* 운영진 일정 추가 폼 */}
@@ -301,7 +269,6 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                {t('calendar.add_admin_schedule')} 
              </Typography>
              
-             {/* 1열: 제목 */}
              <TextField 
                 size="small" 
                 placeholder={t('calendar.placeholder_title')} 
@@ -311,7 +278,6 @@ export default function CalendarTab({ clubId, currentUserId, isAdmin, onNavigate
                 sx={{ bgcolor:'white', mb: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} 
               />
               
-              {/* 2열: 시간, 장소, 추가버튼 (50:50 비율) */}
               <Stack direction="row" spacing={1}>
                 <TextField 
                   size="small" 
