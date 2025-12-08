@@ -5,16 +5,18 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, 
   FormControl, InputLabel, Select, MenuItem, Snackbar, Alert, Stack,
   ToggleButton, ToggleButtonGroup, Accordion, AccordionSummary, AccordionDetails, 
-  Paper, Checkbox, FormControlLabel, Divider, Avatar, Grid, Pagination, Switch
+  Paper, Checkbox, FormControlLabel, Divider, Avatar, Grid, Pagination, Switch,
+  List, ListItem, ListItemText, ListItemAvatar
 } from '@mui/material'
 import { 
   Edit, Event, Delete, ExpandMore, Description, Image as ImageIcon, 
-  FilterList, Close, Send, Comment as CommentIcon, CheckCircle, AccessTime, Cancel, HowToVote, LocationOn
+  FilterList, Close, Send, Comment as CommentIcon, HowToVote, LocationOn,
+  AddCircleOutline, RemoveCircleOutline, Visibility, Person
 } from '@mui/icons-material'
-import { useTranslation } from 'react-i18next' // [추가]
+import { useTranslation } from 'react-i18next'
 
 export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initialPostId }) {
-  const { t } = useTranslation() // [추가]
+  const { t } = useTranslation()
   const [posts, setPosts] = useState([])
   const [groups, setGroups] = useState([])
   const [groupMembers, setGroupMembers] = useState([])
@@ -25,6 +27,8 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const [page, setPage] = useState(1)
   const POSTS_PER_PAGE = 10
   const [expandedPanel, setExpandedPanel] = useState(initialPostId || false)
+  
+  // 글쓰기 관련 State
   const [openWrite, setOpenWrite] = useState(false)
   const [writeTargetId, setWriteTargetId] = useState('') 
   const [title, setTitle] = useState('')
@@ -32,10 +36,18 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const [allowComments, setAllowComments] = useState(true)
   const [postType, setPostType] = useState('general') 
   const [activityDate, setActivityDate] = useState('')
+  const [location, setLocation] = useState('')
   const [imageFiles, setImageFiles] = useState([]) 
   const [uploading, setUploading] = useState(false)
   
-  const [location, setLocation] = useState('') 
+  // [NEW] 커스텀 투표 관련 State
+  const [voteOptions, setVoteOptions] = useState(['참여', '불참']) // 기본값
+  const [newVoteOption, setNewVoteOption] = useState('')
+  const [votePublic, setVotePublic] = useState(false) // 투표 결과 공개 여부
+
+  // [NEW] 투표자 명단 보기 모달 State
+  const [openVoters, setOpenVoters] = useState(false)
+  const [selectedVotePost, setSelectedVotePost] = useState(null) // 현재 보고 있는 게시글 정보
 
   const [snack, setSnack] = useState({ open: false, msg: '', type: 'info' })
 
@@ -67,8 +79,12 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
     
     const postIds = pData?.map(p => p.id) || []
     if (postIds.length > 0) {
-      const { data: vData } = await supabase.from('post_votes').select('*').in('post_id', postIds)
+      // [수정] 투표 데이터 가져올 때 유저 정보도 같이 가져옴 (명단 확인용)
+      const { data: vData } = await supabase.from('post_votes')
+        .select('*, profiles(username, full_name, avatar_url)')
+        .in('post_id', postIds)
       if (vData) setPostVotes(vData)
+      
       const { data: cData } = await supabase.from('post_comments').select(`*, profiles(username, avatar_url)`).in('post_id', postIds).order('created_at', {ascending: true})
       if (cData) setComments(cData)
     }
@@ -84,11 +100,23 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const handleFileChange = (e) => setImageFiles(prev => [...prev, ...Array.from(e.target.files)])
   const handleRemoveFile = (idx) => setImageFiles(prev => prev.filter((_, i) => i !== idx))
 
+  // [NEW] 투표 옵션 관리 핸들러
+  const handleAddOption = () => {
+    if (newVoteOption.trim() && !voteOptions.includes(newVoteOption.trim())) {
+      setVoteOptions([...voteOptions, newVoteOption.trim()])
+      setNewVoteOption('')
+    }
+  }
+  const handleRemoveOption = (option) => {
+    setVoteOptions(voteOptions.filter(o => o !== option))
+  }
+
   const handlePost = async () => { 
     const canWriteAny = isAdmin || myRole === 'manager' || myRole === 'staff'
-    if (!writeTargetId && !canWriteAny) return alert(t('board.alert_select_group')) // [수정]
-    if (!title.trim()) return alert(t('board.alert_input_title')) // [수정]
-    if (postType === 'activity' && !activityDate) return alert(t('board.alert_select_date')) // [수정]
+    if (!writeTargetId && !canWriteAny) return alert(t('board.alert_select_group'))
+    if (!title.trim()) return alert(t('board.alert_input_title'))
+    if (postType === 'activity' && !activityDate) return alert(t('board.alert_select_date'))
+    if (postType === 'activity' && voteOptions.length < 2) return alert(t('board.alert_vote_options')) // 최소 2개
 
     setUploading(true)
     let publicUrls = []
@@ -117,11 +145,14 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
         activity_date: postType === 'activity' ? activityDate : null, 
         location: postType === 'activity' ? location : null, 
         image_url: publicUrls,
-        allow_comments: allowComments
+        allow_comments: allowComments,
+        // [NEW] 투표 정보 저장
+        vote_options: postType === 'activity' ? voteOptions : null,
+        vote_public: postType === 'activity' ? votePublic : false
       }])
 
       if (error) throw error
-      setSnack({ open: true, msg: t('board.msg_posted'), type: 'success' }) // [수정]
+      setSnack({ open: true, msg: t('board.msg_posted'), type: 'success' })
       handleCloseWrite(); fetchData()
     } catch (error) { 
       setSnack({ open: true, msg: 'Error: ' + error.message, type: 'error' }) 
@@ -133,17 +164,26 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
     setOpenWrite(false); setTitle(''); setContent(''); setActivityDate(''); setLocation('');
     setImageFiles([]); setPostType('general'); setWriteTargetId(''); 
     setAllowComments(true);
+    setVoteOptions(['참여', '불참']); setVotePublic(false); // 초기화
   }
   
-  const handleVote = async (postId, type) => { const { error } = await supabase.from('post_votes').upsert({ post_id: postId, user_id: currentUserId, vote_type: type }, { onConflict: 'post_id, user_id' }); if (error) alert('Error'); else fetchData() }
-  const handleDeletePost = async (postId) => { if (!confirm(t('common.confirm_delete'))) return; await supabase.from('posts').delete().eq('id', postId); fetchData() } // [수정]
+  const handleVote = async (postId, option) => { 
+    // [수정] option(텍스트)을 저장
+    const { error } = await supabase.from('post_votes').upsert({ 
+      post_id: postId, user_id: currentUserId, vote_type: option 
+    }, { onConflict: 'post_id, user_id' }); 
+    
+    if (error) alert('Error'); else fetchData() 
+  }
+  
+  const handleDeletePost = async (postId) => { if (!confirm(t('common.confirm_delete'))) return; await supabase.from('posts').delete().eq('id', postId); fetchData() }
   const handleCommentChange = (postId, value) => { setCommentInputs(prev => ({ ...prev, [postId]: value })) }
   const handleSubmitComment = async (postId) => {
     const text = commentInputs[postId]; if (!text || !text.trim()) return
     const { error } = await supabase.from('post_comments').insert([{ post_id: postId, user_id: currentUserId, content: text.trim() }])
     if (error) alert('Error'); else { setCommentInputs(prev => ({ ...prev, [postId]: '' })); fetchData() }
   }
-  const handleDeleteComment = async (commentId) => { if (!confirm(t('common.confirm_delete'))) return; await supabase.from('post_comments').delete().eq('id', commentId); fetchData() } // [수정]
+  const handleDeleteComment = async (commentId) => { if (!confirm(t('common.confirm_delete'))) return; await supabase.from('post_comments').delete().eq('id', commentId); fetchData() }
   const handleChangePanel = (panelId) => (event, isExpanded) => { setExpandedPanel(isExpanded ? panelId : false) }
   const filteredPosts = posts.filter(p => { const pGroupId = p.group_id || 'general'; return selectedFilters.includes(pGroupId) })
   const paginatedPosts = filteredPosts.slice((page - 1) * POSTS_PER_PAGE, page * POSTS_PER_PAGE)
@@ -152,17 +192,23 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
   const isWriter = isAdmin || myRole === 'staff' || myLeaderGroupIds.length > 0
   const writeTargetOptions = (isAdmin || myRole === 'staff') ? groups : groups.filter(g => myLeaderGroupIds.includes(g.id))
 
+  // [NEW] 투표자 명단 모달 열기
+  const handleOpenVoters = (post) => {
+    setSelectedVotePost(post)
+    setOpenVoters(true)
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, minHeight: '60vh' }}>
       
       <Paper elevation={0} variant="outlined" sx={{ width: { xs: '100%', md: '30%' }, p: 0, borderRadius: 3, bgcolor: 'white', height: 'fit-content', position: { md: 'sticky' }, top: 100, overflow: 'hidden' }}>
         <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><FilterList fontSize="small" color="action" /> {t('board.filter')}</Typography> {/* [수정] */}
-          <Button size="small" onClick={handleSelectAll} sx={{ fontSize: '0.75rem', minWidth: 'auto' }}>{t('board.select_all')}</Button> {/* [수정] */}
+          <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><FilterList fontSize="small" color="action" /> {t('board.filter')}</Typography>
+          <Button size="small" onClick={handleSelectAll} sx={{ fontSize: '0.75rem', minWidth: 'auto' }}>{t('board.select_all')}</Button>
         </Box>
         <Box sx={{ p: 2 }}>
           <Stack spacing={0.5}>
-            <FormControlLabel control={<Checkbox checked={selectedFilters.includes('general')} onChange={() => handleToggleFilter('general')} size="small" />} label={<Typography variant="body2" fontWeight={selectedFilters.includes('general')?600:400}>{t('board.general_notice')}</Typography>} sx={{ m: 0, p: 1, borderRadius: 2, bgcolor: selectedFilters.includes('general') ? '#eff6ff' : 'transparent', '&:hover': { bgcolor: '#f1f5f9' }}} /> {/* [수정] */}
+            <FormControlLabel control={<Checkbox checked={selectedFilters.includes('general')} onChange={() => handleToggleFilter('general')} size="small" />} label={<Typography variant="body2" fontWeight={selectedFilters.includes('general')?600:400}>{t('board.general_notice')}</Typography>} sx={{ m: 0, p: 1, borderRadius: 2, bgcolor: selectedFilters.includes('general') ? '#eff6ff' : 'transparent', '&:hover': { bgcolor: '#f1f5f9' }}} />
             {groups.length > 0 && <Divider sx={{ my: 1 }} />}
             {groups.map(g => ( <FormControlLabel key={g.id} control={<Checkbox checked={selectedFilters.includes(g.id)} onChange={() => handleToggleFilter(g.id)} size="small" />} label={<Typography variant="body2" fontWeight={selectedFilters.includes(g.id)?600:400} sx={{color: selectedFilters.includes(g.id)?'text.primary':'text.secondary'}}>{g.name}</Typography>} sx={{ m: 0, p: 1, borderRadius: 2, bgcolor: selectedFilters.includes(g.id) ? '#fff7ed' : 'transparent', '&:hover': { bgcolor: '#fffbf0' }}} /> ))}
           </Stack>
@@ -171,19 +217,25 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
 
       <Box sx={{ flex: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
-          <Typography variant="h6" fontWeight="bold">{t('board.feed')}</Typography> {/* [수정] */}
-          {isWriter && <Button variant="contained" onClick={() => setOpenWrite(true)} startIcon={<Edit />} sx={{ borderRadius: 2, boxShadow: 'none' }}>{t('board.write_post')}</Button>} {/* [수정] */}
+          <Typography variant="h6" fontWeight="bold">{t('board.feed')}</Typography>
+          {isWriter && <Button variant="contained" onClick={() => setOpenWrite(true)} startIcon={<Edit />} sx={{ borderRadius: 2, boxShadow: 'none' }}>{t('board.write_post')}</Button>}
         </Box>
 
         <Stack spacing={2.5}>
-          {paginatedPosts.length === 0 && <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #e2e8f0' }}><Typography color="text.secondary">{t('board.no_posts')}</Typography></Box>} {/* [수정] */}
+          {paginatedPosts.length === 0 && <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#f8fafc', borderRadius: 3, border: '1px dashed #e2e8f0' }}><Typography color="text.secondary">{t('board.no_posts')}</Typography></Box>}
           
           {paginatedPosts.map(p => {
             const votes = postVotes.filter(v => v.post_id === p.id)
             const myVote = votes.find(v => v.user_id === currentUserId)?.vote_type
             const isMyPost = p.author_id === currentUserId
+            // 열람 권한: 관리자, 작성자, 또는 '멤버 공개' 설정된 경우
+            const canViewVoters = isAdmin || isMyPost || p.vote_public
+            
             const myComments = comments.filter(c => c.post_id === p.id)
             let displayImages = []; if (Array.isArray(p.image_url)) displayImages = p.image_url; else if (typeof p.image_url === 'string' && p.image_url) displayImages = [p.image_url];
+
+            // [NEW] 투표 옵션 파싱 (DB에 없으면 기본값)
+            const options = p.vote_options || ['참여', '지각', '불참']
 
             return (
               <Accordion 
@@ -201,7 +253,7 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                 <AccordionSummary expandIcon={<ExpandMore sx={{ color: '#94a3b8' }} />} sx={{ px: 3, py: 1.5 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', gap: 1 }}>
                     <Box sx={{ display:'flex', alignItems: 'center', gap: 1, flexWrap:'wrap' }}>
-                      <Chip label={p.group_id ? p.groups?.name : t('board.general_notice')} size="small" sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, borderRadius: 1, bgcolor: p.group_id ? '#ffedd5' : '#dbeafe', color: p.group_id ? '#c2410c' : '#1e40af' }} /> {/* [수정] */}
+                      <Chip label={p.group_id ? p.groups?.name : t('board.general_notice')} size="small" sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, borderRadius: 1, bgcolor: p.group_id ? '#ffedd5' : '#dbeafe', color: p.group_id ? '#c2410c' : '#1e40af' }} />
                       {p.post_type === 'activity' && <Chip label={`📅 ${formatDate(p.activity_date)}`} size="small" sx={{ height: 22, fontSize: '0.7rem', borderRadius: 1, bgcolor: '#fef3c7', color: '#b45309' }} />}
                       {p.location && ( <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', color: '#64748b', fontSize: '0.75rem' }}><LocationOn sx={{ fontSize: 14, mr: 0.5 }} /> {p.location}</Typography> )}
                       <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>{formatDate(p.created_at)}</Typography>
@@ -231,25 +283,43 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                     </Grid>
                   )}
 
+                  {/* [수정] 투표 UI: 커스텀 옵션 렌더링 */}
                   {p.post_type === 'activity' && (
                     <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: 3, bgcolor: '#fff7ed', border: '1px solid #ffedd5' }}>
                       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb: 2 }}>
-                        <Typography variant="subtitle2" fontWeight="800" sx={{ color: '#c2410c', display:'flex', alignItems:'center', gap:1 }}><HowToVote fontSize="small"/> {t('board.vote_title')}</Typography> {/* [수정] */}
-                        <Box sx={{ textAlign:'right' }}>
-                          {p.activity_date && <Typography variant="caption" display="block" fontWeight="bold" color="#c2410c">📅 {p.activity_date}</Typography>}
-                          {p.location && <Typography variant="caption" display="block" color="#c2410c">📍 {p.location}</Typography>}
-                        </Box>
+                        <Typography variant="subtitle2" fontWeight="800" sx={{ color: '#c2410c', display:'flex', alignItems:'center', gap:1 }}>
+                          <HowToVote fontSize="small"/> {t('board.vote_title')}
+                        </Typography>
+                        {canViewVoters && (
+                          <Button size="small" startIcon={<Visibility />} onClick={() => handleOpenVoters(p)} sx={{ color: '#ea580c', fontSize: '0.75rem' }}>
+                            {t('board.view_voters')}
+                          </Button>
+                        )}
                       </Box>
-                      <Stack direction="row" spacing={1}>
-                        <Button size="small" variant={myVote==='participate'?'contained':'outlined'} color="success" onClick={()=>handleVote(p.id, 'participate')} sx={{borderRadius: 2}}>{t('board.vote_yes')}</Button> {/* [수정] */}
-                        <Button size="small" variant={myVote==='late'?'contained':'outlined'} color="warning" onClick={()=>handleVote(p.id, 'late')} sx={{borderRadius: 2}}>{t('board.vote_late')}</Button> {/* [수정] */}
-                        <Button size="small" variant={myVote==='absent'?'contained':'outlined'} color="error" onClick={()=>handleVote(p.id, 'absent')} sx={{borderRadius: 2}}>{t('board.vote_no')}</Button> {/* [수정] */}
+                      
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                        {options.map((opt) => {
+                          const count = votes.filter(v => v.vote_type === opt).length
+                          const isSelected = myVote === opt
+                          return (
+                            <Button 
+                              key={opt}
+                              size="small" 
+                              variant={isSelected ? 'contained' : 'outlined'} 
+                              color={isSelected ? "warning" : "inherit"}
+                              onClick={() => handleVote(p.id, opt)} 
+                              sx={{ borderRadius: 2, borderColor: isSelected ? 'transparent' : '#fed7aa', color: isSelected ? 'white' : '#9a3412', bgcolor: isSelected ? '#ea580c' : 'white' }}
+                            >
+                              {opt} ({count})
+                            </Button>
+                          )
+                        })}
                       </Stack>
                     </Paper>
                   )}
 
                   <Box sx={{ mt: 3, pt: 3, borderTop: '1px solid #f1f5f9' }}>
-                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2 }}>{t('board.comments')} ({myComments.length})</Typography> {/* [수정] */}
+                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2 }}>{t('board.comments')} ({myComments.length})</Typography>
                     <Stack spacing={2} sx={{ mb: 3 }}>
                       {myComments.map(c => (
                         <Box key={c.id} sx={{ display: 'flex', gap: 1.5 }}>
@@ -260,17 +330,17 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
                               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>{formatDateTime(c.created_at)}</Typography>
                             </Box>
                             <Typography variant="body2" sx={{ mt: 0.5, fontSize: '0.9rem' }}>{c.content}</Typography>
-                            {(isAdmin || c.user_id === currentUserId) && <Typography variant="caption" color="error" sx={{ cursor: 'pointer', fontWeight: 'bold', mt: 0.5, display:'inline-block' }} onClick={() => handleDeleteComment(c.id)}>{t('common.delete')}</Typography>} {/* [수정] */}
+                            {(isAdmin || c.user_id === currentUserId) && <Typography variant="caption" color="error" sx={{ cursor: 'pointer', fontWeight: 'bold', mt: 0.5, display:'inline-block' }} onClick={() => handleDeleteComment(c.id)}>{t('common.delete')}</Typography>}
                           </Box>
                         </Box>
                       ))}
                     </Stack>
                     {p.allow_comments ? (
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        <TextField fullWidth size="small" placeholder={t('board.comment_placeholder')} value={commentInputs[p.id] || ''} onChange={(e) => handleCommentChange(p.id, e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }} onKeyPress={(e) => { if (e.key === 'Enter') handleSubmitComment(p.id) }} /> {/* [수정] */}
+                        <TextField fullWidth size="small" placeholder={t('board.comment_placeholder')} value={commentInputs[p.id] || ''} onChange={(e) => handleCommentChange(p.id, e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }} onKeyPress={(e) => { if (e.key === 'Enter') handleSubmitComment(p.id) }} />
                         <IconButton color="primary" onClick={() => handleSubmitComment(p.id)} disabled={!commentInputs[p.id]?.trim()}><Send /></IconButton>
                       </Box>
-                    ) : (<Alert severity="info" icon={false} sx={{ py: 0 }}>{t('board.comments_disabled')}</Alert>)} {/* [수정] */}
+                    ) : (<Alert severity="info" icon={false} sx={{ py: 0 }}>{t('board.comments_disabled')}</Alert>)}
                   </Box>
 
                   {(isAdmin || isMyPost) && <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}><IconButton size="small" onClick={() => handleDeletePost(p.id)} sx={{ color: '#94a3b8' }}><Delete fontSize="small" /></IconButton></Box>}
@@ -283,59 +353,125 @@ export default function BoardTab({ clubId, isAdmin, myRole, currentUserId, initi
         {totalPages > 1 && <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><Pagination count={totalPages} page={page} onChange={(e, v) => setPage(v)} color="primary" shape="rounded"/></Box>}
       </Box>
 
-      {/* 글쓰기 모달 */}
+      {/* [수정] 글쓰기 모달 (사진 업로드, 커스텀 투표, 공개 설정) */}
       <Dialog open={openWrite} onClose={handleCloseWrite} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #f1f5f9' }}>{t('board.write_new_post')}</DialogTitle> {/* [수정] */}
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #f1f5f9' }}>{t('board.write_new_post')}</DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <FormControl fullWidth>
-              <InputLabel>{t('board.select_board')}</InputLabel> {/* [수정] */}
+              <InputLabel>{t('board.select_board')}</InputLabel>
               <Select value={writeTargetId} label={t('board.select_board')} onChange={e => setWriteTargetId(e.target.value)} sx={{ borderRadius: 2 }}>
-                {(isAdmin || myRole === 'staff') && <MenuItem value="general">{t('board.general_notice')}</MenuItem>} {/* [수정] */}
+                {(isAdmin || myRole === 'staff') && <MenuItem value="general">{t('board.general_notice')}</MenuItem>}
                 {writeTargetOptions.map(g => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}
               </Select>
             </FormControl>
             
             <ToggleButtonGroup value={postType} exclusive onChange={(e, v) => { if(v) setPostType(v) }} fullWidth color="primary" sx={{ '& .MuiToggleButton-root': { borderRadius: 2, border: '1px solid #e2e8f0' } }}>
-              <ToggleButton value="general"><Description sx={{mr:1}}/> {t('board.type_general')}</ToggleButton> {/* [수정] */}
-              <ToggleButton value="activity"><Event sx={{mr:1}}/> {t('board.type_activity')}</ToggleButton> {/* [수정] */}
+              <ToggleButton value="general"><Description sx={{mr:1}}/> {t('board.type_general')}</ToggleButton>
+              <ToggleButton value="activity"><Event sx={{mr:1}}/> {t('board.type_activity')}</ToggleButton>
             </ToggleButtonGroup>
 
-            {postType === 'activity' ? 
-              <Stack direction="row" spacing={2}>
-                <TextField type="date" label={t('board.label_date')} InputLabelProps={{ shrink: true }} fullWidth value={activityDate} onChange={e => setActivityDate(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /> {/* [수정] */}
-                <TextField label={t('board.label_location')} placeholder={t('board.placeholder_location')} fullWidth value={location} onChange={e => setLocation(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /> {/* [수정] */}
-              </Stack>
-              : 
-              <Box>
-                  <Button component="label" variant="outlined" startIcon={<ImageIcon />} fullWidth sx={{ height: 56, borderStyle: 'dashed', borderRadius: 2, color: 'text.secondary', borderColor: '#cbd5e1', textTransform: 'none' }}>
-                    {t('board.add_photos')} {/* [수정] */}
-                    <input type="file" hidden accept="image/*" multiple onChange={handleFileChange} />
-                  </Button>
-                  {imageFiles.length > 0 && (
-                    <Stack direction="row" spacing={1} sx={{ mt: 2, overflowX: 'auto', pb: 1 }}>
-                        {imageFiles.map((file, index) => (
-                            <Box key={index} sx={{ position: 'relative', width: 80, height: 80, flexShrink: 0, borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                                <img src={URL.createObjectURL(file)} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                <IconButton size="small" onClick={() => handleRemoveFile(index)} sx={{ position: 'absolute', top: 2, right: 2, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', p: 0.5, '&:hover':{bgcolor:'rgba(0,0,0,0.7)'} }}><Close fontSize="small" sx={{ fontSize: 16 }} /></IconButton>
-                            </Box>
-                        ))}
-                    </Stack>
-                  )}
-              </Box>
-            }
+            {/* [수정] 사진 업로드를 공통 영역으로 이동 (활동글에도 사진 필요하므로) */}
+            <Box>
+                <Button component="label" variant="outlined" startIcon={<ImageIcon />} fullWidth sx={{ height: 56, borderStyle: 'dashed', borderRadius: 2, color: 'text.secondary', borderColor: '#cbd5e1', textTransform: 'none' }}>
+                  {t('board.add_photos')}
+                  <input type="file" hidden accept="image/*" multiple onChange={handleFileChange} />
+                </Button>
+                {imageFiles.length > 0 && (
+                  <Stack direction="row" spacing={1} sx={{ mt: 2, overflowX: 'auto', pb: 1 }}>
+                      {imageFiles.map((file, index) => (
+                          <Box key={index} sx={{ position: 'relative', width: 80, height: 80, flexShrink: 0, borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                              <img src={URL.createObjectURL(file)} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <IconButton size="small" onClick={() => handleRemoveFile(index)} sx={{ position: 'absolute', top: 2, right: 2, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', p: 0.5, '&:hover':{bgcolor:'rgba(0,0,0,0.7)'} }}><Close fontSize="small" sx={{ fontSize: 16 }} /></IconButton>
+                          </Box>
+                      ))}
+                  </Stack>
+                )}
+            </Box>
 
-            <TextField label={t('board.label_title')} fullWidth value={title} onChange={e => setTitle(e.target.value)} variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /> {/* [수정] */}
-            <TextField label={t('board.label_content')} fullWidth multiline rows={6} value={content} onChange={e => setContent(e.target.value)} variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /> {/* [수정] */}
+            {postType === 'activity' && (
+              <>
+                <Stack direction="row" spacing={2}>
+                  <TextField type="date" label={t('board.label_date')} InputLabelProps={{ shrink: true }} fullWidth value={activityDate} onChange={e => setActivityDate(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  <TextField label={t('board.label_location')} placeholder={t('board.placeholder_location')} fullWidth value={location} onChange={e => setLocation(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                </Stack>
+
+                {/* [NEW] 투표 옵션 설정 */}
+                <Box sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                   <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>{t('board.label_vote_options')}</Typography>
+                   <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+                     <TextField 
+                       size="small" fullWidth placeholder={t('board.placeholder_vote_option')} 
+                       value={newVoteOption} onChange={e => setNewVoteOption(e.target.value)}
+                       onKeyPress={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAddOption(); } }}
+                       sx={{ bgcolor: 'white' }}
+                     />
+                     <Button variant="contained" onClick={handleAddOption} disabled={!newVoteOption.trim()} sx={{ minWidth: 60 }}>
+                       <AddCircleOutline />
+                     </Button>
+                   </Stack>
+                   <Stack direction="row" flexWrap="wrap" gap={1}>
+                     {voteOptions.map((opt, idx) => (
+                       <Chip key={idx} label={opt} onDelete={() => handleRemoveOption(opt)} />
+                     ))}
+                   </Stack>
+                </Box>
+                
+                {/* [NEW] 투표 공개 설정 */}
+                <FormControlLabel control={<Switch checked={votePublic} onChange={e => setVotePublic(e.target.checked)} />} label={<Typography variant="body2">{t('board.allow_vote_view')}</Typography>} />
+              </>
+            )}
+
+            <TextField label={t('board.label_title')} fullWidth value={title} onChange={e => setTitle(e.target.value)} variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            <TextField label={t('board.label_content')} fullWidth multiline rows={6} value={content} onChange={e => setContent(e.target.value)} variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
             
-            <FormControlLabel control={<Switch checked={allowComments} onChange={e => setAllowComments(e.target.checked)} />} label={<Typography variant="body2" color="text.secondary">{t('board.allow_comments')}</Typography>} /> {/* [수정] */}
+            <FormControlLabel control={<Switch checked={allowComments} onChange={e => setAllowComments(e.target.checked)} />} label={<Typography variant="body2" color="text.secondary">{t('board.allow_comments')}</Typography>} />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={handleCloseWrite} sx={{ color: 'text.secondary' }}>{t('common.cancel')}</Button> {/* [수정] */}
-          <Button variant="contained" onClick={handlePost} disabled={uploading || !writeTargetId} sx={{ borderRadius: 2, boxShadow: 'none', px: 3 }}>{uploading ? t('common.loading') : t('board.btn_submit')}</Button> {/* [수정] */}
+          <Button onClick={handleCloseWrite} sx={{ color: 'text.secondary' }}>{t('common.cancel')}</Button>
+          <Button variant="contained" onClick={handlePost} disabled={uploading || !writeTargetId} sx={{ borderRadius: 2, boxShadow: 'none', px: 3 }}>{uploading ? t('common.loading') : t('board.btn_submit')}</Button>
         </DialogActions>
       </Dialog>
+
+      {/* [NEW] 투표자 명단 확인 모달 */}
+      <Dialog open={openVoters} onClose={() => setOpenVoters(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
+         <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}>{t('board.vote_result_title')}</DialogTitle>
+         <DialogContent sx={{ p: 0 }}>
+           {selectedVotePost && (
+             <Box>
+               {selectedVotePost.vote_options?.map(opt => {
+                  const voters = postVotes.filter(v => v.post_id === selectedVotePost.id && v.vote_type === opt)
+                  return (
+                    <Accordion key={opt} disableGutters elevation={0} defaultExpanded sx={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: '#f8fafc' }}>
+                        <Typography fontWeight="bold" sx={{ color: '#1e293b' }}>{opt} <Box component="span" sx={{ color: '#64748b', fontWeight: 400, ml: 1 }}>({voters.length})</Box></Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: 0 }}>
+                        <List dense>
+                          {voters.length === 0 && <ListItem><ListItemText primary={t('board.no_voters')} primaryTypographyProps={{ color: 'text.secondary', fontSize: '0.9rem', textAlign:'center' }} /></ListItem>}
+                          {voters.map(v => (
+                            <ListItem key={v.user_id}>
+                              <ListItemAvatar>
+                                <Avatar src={v.profiles?.avatar_url} sx={{ width: 30, height: 30 }} />
+                              </ListItemAvatar>
+                              <ListItemText primary={v.profiles?.full_name || v.profiles?.username} />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </AccordionDetails>
+                    </Accordion>
+                  )
+               })}
+             </Box>
+           )}
+         </DialogContent>
+         <DialogActions sx={{ p: 2 }}>
+           <Button onClick={() => setOpenVoters(false)} color="inherit">{t('common.close')}</Button>
+         </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={handleCloseSnack}><Alert onClose={handleCloseSnack} severity={snack.type}>{snack.msg}</Alert></Snackbar>
     </Box>
   )
 }

@@ -205,7 +205,14 @@ const resources = {
         alert_select_group: "작성할 그룹을 선택해주세요.",
         alert_input_title: "제목을 입력해주세요.",
         alert_select_date: "활동 날짜를 선택해주세요.",
-        msg_posted: "등록 완료"
+        msg_posted: "등록 완료",
+        alert_vote_options: "투표 항목을 2개 이상 입력해주세요.",
+        label_vote_options: "투표 항목 설정",
+        placeholder_vote_option: "항목 입력 (예: 참여)",
+        allow_vote_view: "투표 결과를 멤버들에게 공개",
+        view_voters: "투표자 명단",
+        vote_result_title: "투표 현황",
+        no_voters: "투표한 사람이 없습니다."
       },
       calendar: {
         legend_activity: "활동 공지",
@@ -559,7 +566,14 @@ const resources = {
         alert_select_group: "作成するグループを選択してください。",
         alert_input_title: "タイトルを入力してください。",
         alert_select_date: "活動日を選択してください。",
-        msg_posted: "登録完了"
+        msg_posted: "登録完了",
+        alert_vote_options: "投票項目を2つ以上入力してください。",
+        label_vote_options: "投票項目設定",
+        placeholder_vote_option: "項目入力 (例: 参加)",
+        allow_vote_view: "投票結果をメンバーに公開",
+        view_voters: "投票者リスト",
+        vote_result_title: "投票状況",
+        no_voters: "投票した人がいません。"
       },
       calendar: {
         legend_activity: "活動のお知らせ",
