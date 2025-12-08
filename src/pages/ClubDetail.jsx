@@ -15,6 +15,7 @@ import CalendarTab from '../features/CalendarTab'
 import MemberManageTab from '../features/MemberManageTab'
 import ClubSettingsTab from '../features/ClubSettingsTab'
 import ChatTab from '../features/ChatTab'
+import ItemRentalTab from '../features/ItemRentalTab'
 
 import { 
   Tabs, Tab, Box, Typography, Container, Stack, Chip, Button, Fade, Avatar,
@@ -257,6 +258,7 @@ export default function ClubDetail() {
       
       {isMember && <Tab label={t('club.tabs.archive')} value="archive" />} 
       {isMember && <Tab label={t('club.tabs.photo')} value="photo" />} 
+      {isMember && <Tab label={t('club.tabs.rental')} value="rental" />}
       
       {isMember && <Tab label={t('club.tabs.group')} value="my_group" />}
       {isMember && <Tab label={t('club.tabs.chat')} value="chat" />}
@@ -383,11 +385,13 @@ export default function ClubDetail() {
             {isMember && activeTab === 'calendar' && <CalendarTab clubId={id} currentUserId={currentUserId} isAdmin={isAdmin} onNavigateToBoard={handleNavigateToBoard} />}
             {isMember && activeTab === 'archive' && <ArchiveTab clubId={id} isAdmin={isAdmin} />}
             {isMember && activeTab === 'photo' && <PhotoArchiveTab clubId={id} currentUserId={currentUserId} myRole={myRole} groupMembers={myGroupMemberships} />}
+            {isMember && activeTab === 'rental' && (<ItemRentalTab clubId={id} currentUserId={currentUserId} isAdmin={isAdmin} />)}
             {isMember && activeTab === 'chat' && <ChatTab clubId={id} currentUserId={currentUserId} initialGroupId={targetGroupId} />}
             {isMember && activeTab === 'group_manage' && <GroupManageTab clubId={id} isAdmin={isAdmin} currentUserId={currentUserId} />}
             {isMember && activeTab === 'member_manage' && isAdmin && <MemberManageTab clubId={id} myRole={myRole} />}
             {isMember && activeTab === 'ledger' && isAdmin && <LedgerTab clubId={id} isAdmin={isAdmin} myRole={myRole} />}
             {isMember && activeTab === 'settings' && isAdmin && <ClubSettingsTab clubId={id} />}
+            
           </Box>
         </Fade>
       </Container>
