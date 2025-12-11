@@ -16,7 +16,7 @@ export default function Home({ session }) {
   const [searchQuery, setSearchQuery] = useState('') 
   const [open, setOpen] = useState(false)
   const [newClubName, setNewClubName] = useState('')
-  const [loading, setLoading] = useState(true) // [NEW] 로딩 상태
+  const [loading, setLoading] = useState(true) 
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -24,10 +24,10 @@ export default function Home({ session }) {
   }, [session])
 
   const fetchClubs = async () => {
-    setLoading(true) // 로딩 시작
+    setLoading(true) 
     const { data: mems } = await supabase.from('club_members').select('*, clubs(*)').eq('user_id', session.user.id)
     if (mems) setMyClubs(mems)
-    setLoading(false) // 로딩 끝
+    setLoading(false) 
   }
 
   const createClub = async () => {
@@ -152,12 +152,10 @@ export default function Home({ session }) {
           <Typography variant="h5" fontWeight="800" color="#1e293b">
             {t('home.my_clubs')} 
           </Typography>
-          {/* 로딩 중에는 숫자 대신 스켈레톤 */}
           {loading ? <Skeleton width={30} height={30} sx={{ ml: 2 }} /> : <Chip label={myClubs.length} size="small" sx={{ ml: 2, fontWeight: 'bold', bgcolor: '#e2e8f0', color: '#475569' }} />}
         </Box>
         
         {loading ? (
-          // [NEW] 로딩 스켈레톤 UI
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
              {[1, 2, 3].map((i) => (
                 <Skeleton key={i} variant="rectangular" height={200} sx={{ borderRadius: 4 }} />
@@ -214,7 +212,9 @@ export default function Home({ session }) {
                     >
                       <CardContent sx={{ p: 3, flexGrow: 1 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          {/* [수정] 아이콘 이미지 연결 (src 추가) */}
                           <Avatar 
+                            src={item.clubs?.icon_url} 
                             sx={{ 
                               bgcolor: stringToColor(item.clubs?.name || ''), 
                               width: 56, height: 56, 
