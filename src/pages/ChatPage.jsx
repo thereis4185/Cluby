@@ -3,30 +3,32 @@ import { supabase } from '../supabaseClient'
 import Layout from '../components/Layout'
 import { 
   Box, Paper, Typography, List, ListItemButton, ListItemText, ListItemAvatar,
-  Avatar, IconButton, TextField, Chip, Container, Divider, Stack, Skeleton // [추가] Skeleton
+  Avatar, IconButton, TextField, Chip, Container, Divider, Stack, Skeleton,
+  useMediaQuery, useTheme 
 } from '@mui/material'
-import { Send, Public, Groups, Chat as ChatIcon } from '@mui/icons-material'
+import { Send, Public, Groups, Chat as ChatIcon, ArrowBack } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next' 
 
 export default function ChatPage({ session }) {
-  const { t } = useTranslation() 
+  const { t, i18n } = useTranslation() 
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')) // 모바일 감지
+
   const currentUserId = session?.user?.id
-  
   const [channels, setChannels] = useState([])
   const [activeChannel, setActiveChannel] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
-  const [loading, setLoading] = useState(true) // [NEW] 채널 로딩 상태
+  const [loading, setLoading] = useState(true) 
   const messagesEndRef = useRef(null)
 
-  // 1. 내 모든 채팅방 목록 가져오기
+  // 1. 채널 목록 로드
   useEffect(() => {
     if (currentUserId) fetchAllChannels()
   }, [currentUserId])
 
   const fetchAllChannels = async () => {
-    setLoading(true) // 로딩 시작
-    // (A) 가입한 동아리의 전체 채팅방
+    setLoading(true)
     const { data: clubs } = await supabase.from('club_members')
       .select('club_id, clubs(name)')
       .eq('user_id', currentUserId)
@@ -41,7 +43,6 @@ export default function ChatPage({ session }) {
       clubName: c.clubs.name
     })) || []
 
-    // (B) 소속된 그룹 채팅방
     const { data: groups } = await supabase.from('group_members')
       .select('group_id, groups(name, club_id, clubs(name))')
       .eq('user_id', currentUserId)
@@ -57,15 +58,15 @@ export default function ChatPage({ session }) {
 
     const all = [...generalChannels, ...groupChannels]
     setChannels(all)
-    setLoading(false) // 로딩 종료
+    setLoading(false)
     
-    // 처음에 첫 번째 방 자동 선택
-    if (all.length > 0) {
+    // [수정] 모바일이 아닐 때만 첫 번째 방 자동 선택
+    if (!isMobile && all.length > 0) {
       handleEnterRoom(all[0])
     }
   }
 
-  // 2. 채팅방 입장 & 메시지 로딩
+  // 2. 채팅방 입장
   const handleEnterRoom = (channel) => {
     setActiveChannel(channel)
     fetchMessages(channel)
@@ -86,7 +87,6 @@ export default function ChatPage({ session }) {
       scrollToBottom()
     }
     
-    // 기존 구독 해제 후 재구독
     supabase.removeAllChannels()
     subscribeChat(channel)
   }
@@ -115,15 +115,9 @@ export default function ChatPage({ session }) {
   const handleSend = async (e) => {
     e.preventDefault()
     if (!newMessage.trim() || !activeChannel) return
-    
-    const content = newMessage
-    setNewMessage('')
-
+    const content = newMessage; setNewMessage('')
     await supabase.from('chat_messages').insert([{
-      club_id: activeChannel.clubId,
-      group_id: activeChannel.realId,
-      user_id: currentUserId,
-      content
+      club_id: activeChannel.clubId, group_id: activeChannel.realId, user_id: currentUserId, content
     }])
   }
 
@@ -133,119 +127,148 @@ export default function ChatPage({ session }) {
     return color;
   }
 
+  // [UI 렌더링 조건]
+  const showList = !isMobile || !activeChannel
+  const showRoom = !isMobile || activeChannel
+
   return (
     <Layout>
-      <Container maxWidth="xl" sx={{ mt: 2, height: '80vh' }}>
+      <Container maxWidth="xl" sx={{ mt: 2, height: { xs: 'calc(100vh - 80px)', md: '80vh' }, pb: { xs: 2, md: 0 } }}>
         <Paper sx={{ height: '100%', display: 'flex', borderRadius: 4, overflow: 'hidden', border: '1px solid #e0e0e0' }}>
           
-          {/* [왼쪽] 채팅방 목록 (30%) */}
-          <Box sx={{ width: { xs: '80px', md: '300px' }, borderRight: '1px solid #eee', bgcolor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 2.5, borderBottom: '1px solid #eee', display: { xs: 'none', md: 'block' } }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ChatIcon color="primary" /> {t('chat_page.my_chat')} 
-              </Typography>
-            </Box>
-            
-            <List sx={{ flexGrow: 1, overflowY: 'auto' }}>
-              {loading ? (
-                // [NEW] 로딩 스켈레톤 UI
-                Array.from({ length: 5 }).map((_, i) => (
-                  <Box key={i} sx={{ p: 2, display: 'flex', gap: 2 }}>
-                    <Skeleton variant="circular" width={40} height={40} />
-                    <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }}>
-                      <Skeleton width="60%" />
-                      <Skeleton width="40%" />
-                    </Box>
-                  </Box>
-                ))
-              ) : (
-                channels.map((ch) => (
-                  <ListItemButton 
-                    key={ch.id} 
-                    selected={activeChannel?.id === ch.id}
-                    onClick={() => handleEnterRoom(ch)}
-                    sx={{ 
-                      py: 1.5, 
-                      '&.Mui-selected': { bgcolor: 'white', borderLeft: '4px solid #4F46E5' },
-                      justifyContent: { xs: 'center', md: 'flex-start' }
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: ch.type === 'general' ? '#4F46E5' : '#7C3AED', color: 'white' }}>
-                        {ch.type === 'general' ? <Public fontSize="small" /> : <Groups fontSize="small" />}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText 
-                      primary={ch.name} 
-                      secondary={ch.type === 'group' ? t('chat_page.small_group') : t('chat_page.all')} 
-                      primaryTypographyProps={{ fontWeight: 'bold', noWrap: true }}
-                      secondaryTypographyProps={{ noWrap: true, fontSize: '0.75rem' }}
-                      sx={{ display: { xs: 'none', md: 'block' } }}
-                    />
-                  </ListItemButton>
-                ))
-              )}
-            </List>
-          </Box>
-
-          {/* [오른쪽] 채팅 화면 (70%) */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
-            {activeChannel ? (
-              <>
-                {/* 채팅방 헤더 */}
-                <Box sx={{ p: 2, borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {activeChannel.type === 'general' ? <Public fontSize="small" color="action"/> : <Groups fontSize="small" color="action"/>}
-                      {activeChannel.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {activeChannel.type === 'group' ? `${activeChannel.clubName} > ${t('chat_page.small_group')}` : activeChannel.clubName} 
-                    </Typography>
-                  </Box>
-                  <Chip label={t('chat.badge_live')} color="success" size="small" variant="filled" /> 
-                </Box>
-
-                {/* 메시지 리스트 */}
-                <Box sx={{ flex: 1, overflowY: 'auto', p: 3, bgcolor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {messages.map((msg, idx) => {
-                    const isMe = msg.user_id === currentUserId
-                    const name = msg.profiles?.full_name || msg.profiles?.username || t('chat.unknown_user') 
-                    const isSequence = idx > 0 && messages[idx - 1].user_id === msg.user_id
-
-                    return (
-                      <Box key={msg.id} sx={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap: 1, mt: isSequence ? 0 : 1 }}>
-                        {!isMe && (
-                          <Box sx={{ width: 32 }}>
-                            {!isSequence && <Avatar src={msg.profiles?.avatar_url} sx={{ width: 32, height: 32, bgcolor: stringToColor(name), fontSize: '0.8rem' }}>{name[0]}</Avatar>}
-                          </Box>
-                        )}
-                        <Box sx={{ maxWidth: '65%' }}>
-                          {!isMe && !isSequence && <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>{name}</Typography>}
-                          <Paper elevation={0} sx={{ p: 1.5, px: 2, borderRadius: 3, bgcolor: isMe ? '#4F46E5' : 'white', color: isMe ? 'white' : 'text.primary', border: isMe ? 'none' : '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                            <Typography variant="body2" sx={{ wordBreak: 'break-word', lineHeight: 1.5 }}>{msg.content}</Typography>
-                          </Paper>
-                        </Box>
-                      </Box>
-                    )
-                  })}
-                  <div ref={messagesEndRef} />
-                </Box>
-
-                {/* 입력창 */}
-                <Box component="form" onSubmit={handleSend} sx={{ p: 2, borderTop: '1px solid #eee' }}>
-                  <Stack direction="row" spacing={1}>
-                    <TextField fullWidth size="small" placeholder={t('chat.input_placeholder')} value={newMessage} onChange={e => setNewMessage(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 5, bgcolor: '#f8fafc' } }} /> 
-                    <IconButton type="submit" color="primary" disabled={!newMessage.trim()} sx={{ bgcolor: '#eef2ff', '&:hover':{bgcolor:'#e0e7ff'} }}><Send /></IconButton>
-                  </Stack>
-                </Box>
-              </>
-            ) : (
-              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-                <Typography>{t('chat_page.select_room')}</Typography> 
+          {/* [왼쪽] 채팅방 목록 */}
+          {showList && (
+            <Box sx={{ width: { xs: '100%', md: '300px' }, borderRight: '1px solid #eee', bgcolor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ p: 2.5, borderBottom: '1px solid #eee' }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ChatIcon color="primary" /> {t('chat_page.my_chat')} 
+                </Typography>
               </Box>
-            )}
-          </Box>
+              
+              <List sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <Box key={i} sx={{ p: 2, display: 'flex', gap: 2 }}>
+                      <Skeleton variant="circular" width={40} height={40} />
+                      <Box sx={{ flex: 1 }}>
+                        <Skeleton width="60%" />
+                        <Skeleton width="40%" />
+                      </Box>
+                    </Box>
+                  ))
+                ) : (
+                  channels.map((ch) => (
+                    <ListItemButton 
+                      key={ch.id} 
+                      selected={activeChannel?.id === ch.id}
+                      onClick={() => handleEnterRoom(ch)}
+                      sx={{ 
+                        py: 1.5, 
+                        '&.Mui-selected': { bgcolor: 'white', borderLeft: '4px solid #4F46E5' },
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: ch.type === 'general' ? '#4F46E5' : '#7C3AED', color: 'white' }}>
+                          {ch.type === 'general' ? <Public fontSize="small" /> : <Groups fontSize="small" />}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText 
+                        primary={ch.name} 
+                        secondary={ch.type === 'group' ? t('chat_page.small_group') : t('chat_page.all')} 
+                        primaryTypographyProps={{ fontWeight: 'bold', noWrap: true }}
+                        secondaryTypographyProps={{ noWrap: true, fontSize: '0.75rem' }}
+                      />
+                    </ListItemButton>
+                  ))
+                )}
+              </List>
+            </Box>
+          )}
+
+          {/* [오른쪽] 채팅 화면 */}
+          {showRoom && (
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
+              {activeChannel ? (
+                <>
+                  {/* 헤더 */}
+                  <Box sx={{ p: 2, borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {/* [NEW] 뒤로가기 버튼 (모바일) */}
+                      {isMobile && (
+                        <IconButton onClick={() => setActiveChannel(null)} size="small" sx={{ mr: 0.5 }}>
+                          <ArrowBack />
+                        </IconButton>
+                      )}
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {activeChannel.type === 'general' ? <Public fontSize="small" color="action"/> : <Groups fontSize="small" color="action"/>}
+                          {activeChannel.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {activeChannel.type === 'group' ? `${activeChannel.clubName} > ${t('chat_page.small_group')}` : activeChannel.clubName} 
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Chip label={t('chat.badge_live')} color="success" size="small" variant="filled" /> 
+                  </Box>
+
+                  {/* 메시지 리스트 */}
+                  <Box sx={{ flex: 1, overflowY: 'auto', p: 3, bgcolor: '#f9fafb', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {messages.map((msg, idx) => {
+                      const isMe = msg.user_id === currentUserId
+                      const name = msg.profiles?.full_name || msg.profiles?.username || t('chat.unknown_user') 
+                      
+                      // [NEW] 날짜 구분선
+                      const dateOptions = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }
+                      const currentDate = new Date(msg.created_at).toLocaleDateString(i18n.language, dateOptions)
+                      const prevDate = idx > 0 ? new Date(messages[idx-1].created_at).toLocaleDateString(i18n.language, dateOptions) : null
+                      const showDate = currentDate !== prevDate
+
+                      return (
+                        <Box key={msg.id}>
+                          {showDate && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+                              <Chip label={currentDate} size="small" sx={{ bgcolor: '#e2e8f0', color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }} />
+                            </Box>
+                          )}
+                          <Box sx={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap: 1 }}>
+                            {!isMe && (
+                              <Box sx={{ width: 32 }}>
+                                <Avatar src={msg.profiles?.avatar_url} sx={{ width: 32, height: 32, bgcolor: stringToColor(name), fontSize: '0.8rem' }}>{name[0]}</Avatar>
+                              </Box>
+                            )}
+                            <Box sx={{ maxWidth: '75%' }}>
+                              {!isMe && <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>{name}</Typography>}
+                              <Paper elevation={0} sx={{ p: 1.5, px: 2, borderRadius: 3, bgcolor: isMe ? '#4F46E5' : 'white', color: isMe ? 'white' : 'text.primary', border: isMe ? 'none' : '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                <Typography variant="body2" sx={{ wordBreak: 'break-word', lineHeight: 1.5 }}>{msg.content}</Typography>
+                              </Paper>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: isMe ? 'right' : 'left', mt: 0.2, fontSize: '0.65rem' }}>
+                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+                      )
+                    })}
+                    <div ref={messagesEndRef} />
+                  </Box>
+
+                  {/* 입력창 */}
+                  <Box component="form" onSubmit={handleSend} sx={{ p: 2, borderTop: '1px solid #eee' }}>
+                    <Stack direction="row" spacing={1}>
+                      <TextField fullWidth size="small" placeholder={t('chat.input_placeholder')} value={newMessage} onChange={e => setNewMessage(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 5, bgcolor: '#f8fafc' } }} /> 
+                      <IconButton type="submit" color="primary" disabled={!newMessage.trim()} sx={{ bgcolor: '#eef2ff', '&:hover':{bgcolor:'#e0e7ff'} }}><Send /></IconButton>
+                    </Stack>
+                  </Box>
+                </>
+              ) : (
+                // 데스크탑: 채팅방 미선택 시 안내
+                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+                  <Typography>{t('chat_page.select_room')}</Typography> 
+                </Box>
+              )}
+            </Box>
+          )}
 
         </Paper>
       </Container>
